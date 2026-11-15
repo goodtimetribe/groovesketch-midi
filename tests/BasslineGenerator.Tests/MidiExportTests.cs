@@ -1,4 +1,5 @@
 using BasslineGenerator.Export;
+using BasslineGenerator.Generation;
 using BasslineGenerator.Interfaces;
 using BasslineGenerator.Models;
 using BasslineGenerator.MusicTheory;
@@ -87,6 +88,31 @@ public class MidiExportTests
         Assert.Single(tracks[1].Events.OfType<NoteOnEvent>());
         Assert.Equal(3, tracks[2].Events.OfType<NoteOnEvent>().Count());
         Assert.All(tracks.Skip(1), track => Assert.Equal(MusicConstants.TicksPerBar, track.Events.Sum(@event => @event.DeltaTime)));
+    }
+
+    [Fact]
+    public void VoiceLedCommonTonesEndBeforeRetriggeringAtBarBoundary()
+    {
+        var chords = new ChordGenerator().Generate("A", ChordProgressionLibrary.Find("Synthwave")!,
+            [new SongSection("Section", SongWorld.Dreamy, 2)]);
+        var file = ReadWritten(new MidiFileFactory().Create([], 0, chords, 1, 120, 2));
+        var track = file.GetTrackChunks().Last();
+        var boundary = new List<MidiEvent>();
+        long time = 0;
+        foreach (var midiEvent in track.Events)
+        {
+            time += midiEvent.DeltaTime;
+            if (time == MusicConstants.TicksPerBar)
+                boundary.Add(midiEvent);
+        }
+
+        Assert.Equal(6, boundary.Count);
+        Assert.All(boundary.Take(3), midiEvent => Assert.IsType<NoteOffEvent>(midiEvent));
+        Assert.All(boundary.Skip(3), midiEvent => Assert.IsType<NoteOnEvent>(midiEvent));
+        Assert.Equal([57, 60, 64], boundary.Take(3).Cast<NoteOffEvent>().Select(note => (int)note.NoteNumber).ToArray());
+        Assert.Equal([57, 60, 65], boundary.Skip(3).Cast<NoteOnEvent>().Select(note => (int)note.NoteNumber).ToArray());
+        Assert.Equal(2L * MusicConstants.TicksPerBar, time);
+        Assert.Equal(6, track.Events.OfType<NoteOffEvent>().Count());
     }
 
     [Fact]

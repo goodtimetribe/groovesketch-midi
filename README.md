@@ -80,6 +80,13 @@ pause, stop, and restart control the preview, and synth volume is remembered for
 the current browser session. Preview playback is bass-only. Choose **Download
 Bass MIDI** for bass alone or **Download Bass + Chords MIDI** for a Type 1 MIDI
 file with separate bass and sustained chord tracks.
+Chords use three-note triads in MIDI register 48-71, starting in root position
+and choosing root position, first inversion, or second inversion to minimize
+movement from the previous bar. Equal-movement ties prefer root position, then
+first inversion, then second inversion, followed by the lower octave placement.
+Voice leading continues across sections; the final-to-first loop transition is
+not optimized. Chords remain full-bar notes at fixed velocity. This changes chord
+pitches in regenerated combined exports; retain existing MIDI for the old voicings.
 Draft changes take effect after regeneration, which stops and resets playback.
 The bass track uses the generated bass channel; chords use MIDI channel 2.
 If both use channel 2, the workspace warns but still exports both unchanged.
