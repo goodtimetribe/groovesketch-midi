@@ -1,5 +1,6 @@
 import type { GenerationPackage, NoteData } from "./types";
 import { MidiInstrument } from "./midi";
+import { mapCircuitTracksDrumNote } from "./circuitTracksDrums";
 
 export type PlaybackState = "stopped" | "playing" | "paused";
 export type TrackId = "bass" | "chords" | "drums";
@@ -226,7 +227,7 @@ export class PlaybackTransport {
     while (this.nextNote < this.notes.length && this.notes[this.nextNote].note.startBeat * this.secondsPerBeat < this.offset) {
       const { track, note } = this.notes[this.nextNote++];
       const remaining = (note.startBeat + note.durationBeats) * this.secondsPerBeat - this.offset;
-      if (remaining > 0) this.instruments[track]!.play(note, this.startedAt, remaining);
+      if (remaining > 0) this.instruments[track]!.play(this.playbackNote(track, note), this.startedAt, remaining);
     }
     this.setState("playing");
     this.timer = setInterval(() => this.schedule(), 25);
@@ -325,7 +326,12 @@ export class PlaybackTransport {
       if (noteStart >= horizon) return;
       const { track, note } = this.notes[this.nextNote++];
       const remaining = noteStart + note.durationBeats * this.secondsPerBeat - Math.max(elapsed, noteStart);
-      if (remaining > 0) this.instruments[track]!.play(note, this.context.currentTime + Math.max(0, noteStart - elapsed), remaining);
+      if (remaining > 0) this.instruments[track]!.play(this.playbackNote(track, note),
+        this.context.currentTime + Math.max(0, noteStart - elapsed), remaining);
     }
+  }
+
+  private playbackNote(track: TrackId, note: NoteData): NoteData {
+    return track === "drums" ? mapCircuitTracksDrumNote(note, this.routes.drums.output?.name) : note;
   }
 }

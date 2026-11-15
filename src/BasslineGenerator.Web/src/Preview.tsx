@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import PianoRoll from "./PianoRoll";
-import { api } from "./api";
+import { api, download } from "./api";
+import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
 import { arrangeDrums, drumPatterns } from "./drumPatterns";
 import { MidiDevices } from "./midi";
 import { PlaybackTransport, type PlaybackState } from "./playback";
@@ -197,6 +198,15 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     try { sessionStorage.setItem(volumeKey, String(value)); setStorageError(false); }
     catch { setStorageError(true); }
   };
+  const downloadCircuitTracksDrums = () => {
+    try {
+      const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
+      download(createCircuitTracksDrumMidi(drumNotes, pkg.effectiveConfiguration.bpm, bars), "circuit-tracks-drums.mid");
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Circuit Tracks drum MIDI could not be created.");
+    }
+  };
   const start = (restart: boolean) => {
     if (unavailable || chordUnavailable || drumUnavailable || collision || !readyChords || readyChords.error) {
       setError("Playback is not ready. Check chord loading and track routing.");
@@ -218,6 +228,8 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
         {drumPatterns.map((pattern) => <option key={pattern.id} value={pattern.id}>{pattern.name} ({pattern.bars} {pattern.bars === 1 ? "bar" : "bars"})</option>)}
       </select>
     </label>
+    <button type="button" disabled={!drumNotes.length} onClick={downloadCircuitTracksDrums}>Download Circuit Tracks Drum MIDI</button>
+    <p className="hint">Exports the selected drum pattern only, mapped to Circuit Tracks Drum 1–3.</p>
     <div className="routing-profiles" role="group" aria-label="Routing profiles">
       <label>Profile
         <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
