@@ -3,12 +3,14 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import { initialRequest } from "../src/domain";
+import { PlaybackTransport } from "../src/playback";
 import Preview from "../src/Preview";
 import type { GenerationPackage } from "../src/types";
 
 vi.mock("../src/PianoRoll", () => ({ default: () => null }));
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   localStorage.clear();
   sessionStorage.clear();
@@ -16,6 +18,7 @@ afterEach(() => {
 
 it("toggles visible playback-only loop state without changing the package", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const setLoop = vi.spyOn(PlaybackTransport.prototype, "setLoop");
   const pkg: GenerationPackage = {
     version: 1, seed: 1, statistics: null, notes: [],
     effectiveConfiguration: {
@@ -30,15 +33,18 @@ it("toggles visible playback-only loop state without changing the package", asyn
   document.body.appendChild(container);
   const root = createRoot(container);
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent === "Loop")!;
-  expect(button.getAttribute("aria-pressed")).toBe("false");
-  await act(async () => button.click());
-  expect(button.textContent).toBe("Loop Enabled");
+  const button = [...container.querySelectorAll("button")].find((item) => item.textContent === "Loop Enabled")!;
   expect(button.getAttribute("aria-pressed")).toBe("true");
-  expect(pkg).toEqual(snapshot);
+  expect(setLoop).toHaveBeenLastCalledWith(true);
   await act(async () => button.click());
   expect(button.textContent).toBe("Loop");
   expect(button.getAttribute("aria-pressed")).toBe("false");
+  expect(setLoop).toHaveBeenLastCalledWith(false);
+  expect(pkg).toEqual(snapshot);
+  await act(async () => button.click());
+  expect(button.textContent).toBe("Loop Enabled");
+  expect(button.getAttribute("aria-pressed")).toBe("true");
+  expect(setLoop).toHaveBeenLastCalledWith(true);
   await act(async () => root.unmount());
   container.remove();
 });

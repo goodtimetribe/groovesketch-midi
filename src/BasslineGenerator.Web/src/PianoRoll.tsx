@@ -157,8 +157,11 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     <div className="track-controls roll-visibility">
       <fieldset><legend>Tracks</legend>
         {tracks.map((track) => <label className="check" key={track.id}>
-          <input type="checkbox" checked={track.visible} onChange={(event) =>
-            setVisibility((old) => ({ ...old, [track.id]: event.target.checked }))} />
+          <input type="checkbox" checked={track.visible} onChange={(event) => {
+            const enabled = event.target.checked;
+            transport.setTrackEnabled(track.kind === "drumGroup" ? "drums" : track.hardwareTrackId, enabled);
+            setVisibility((old) => ({ ...old, [track.id]: enabled }));
+          }} />
           <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" /> {track.name}
         </label>)}
       </fieldset>
@@ -177,7 +180,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
       <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
       <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
     </div>
-    <p className="hint">Notes are read-only. Unfocused tracks are ghosted; brighter notes have higher velocity. Visibility does not affect playback or export. The preview instrument may sound different from your DAW.</p>
+    <p className="hint">Notes are read-only. Unfocused tracks are ghosted; brighter notes have higher velocity. Track checkboxes control visibility and playback, not export. The preview instrument may sound different from your DAW.</p>
     <details><summary>Visible notes ({visibleNotes.length})</summary>
       <div className="note-list"><table><thead><tr><th>Track</th><th>Note</th><th>Start beat</th><th>Length</th><th>Velocity</th></tr></thead>
         <tbody>{visibleNotes.map(({ track, note }, i) => <tr key={`${track.id}-${i}`} onClick={() => setSelected({ trackId: track.id, note })}>

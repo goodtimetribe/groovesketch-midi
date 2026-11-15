@@ -106,9 +106,10 @@ describe("piano roll", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders ghost tracks behind focus, switches focus, and hides tracks without changing the package or transport", async () => {
+  it("renders ghost tracks and toggles visibility and playback without changing the package", async () => {
     const before = JSON.stringify(pkg);
     const load = vi.spyOn(transport, "load");
+    const enabled = vi.spyOn(transport, "setTrackEnabled");
     expect(container.textContent).toContain("Visible notes (2)");
     expect(fills).toContain(`rgba(94, 224, 181, ${(0.35 + 90 / 127 * 0.65) * 0.35})`);
     expect(fills.at(-1)).toBe("rgba(230, 72, 152, 1)");
@@ -117,11 +118,14 @@ describe("piano roll", () => {
     expect(fills).toContain("rgba(230, 72, 152, 0.35)");
     expect(fills.at(-1)).toBe(`rgba(94, 224, 181, ${0.35 + 90 / 127 * 0.65})`);
     await act(async () => checkbox("Bass").click());
+    expect(enabled).toHaveBeenLastCalledWith("synth1", false);
     expect(container.textContent).toContain("Visible notes (1)");
     expect(container.textContent).not.toContain("C2 (36)");
     await act(async () => checkbox("Chords").click());
+    expect(enabled).toHaveBeenLastCalledWith("synth2", false);
     expect(container.textContent).toContain("Visible notes (0)");
     await act(async () => checkbox("Bass").click());
+    expect(enabled).toHaveBeenLastCalledWith("synth1", true);
     expect(container.textContent).toContain("C2 (36)");
     expect(JSON.stringify(pkg)).toBe(before);
     expect(load).not.toHaveBeenCalled();
@@ -167,6 +171,7 @@ describe("piano roll", () => {
   });
 
   it("shows drum notes as a focusable track with Circuit Tracks lane colors", async () => {
+    const enabled = vi.spyOn(transport, "setTrackEnabled");
     const drum = { note: "D2", midiNote: 38, startBeat: 0.5, durationBeats: 0.25, velocity: 100 };
     await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped" chordNotes={[chord]} drumNotes={[drum]} />));
     expect(container.textContent).toContain("Visible notes (3)");
@@ -179,6 +184,7 @@ describe("piano roll", () => {
     expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 42 })).toEqual([180, 140, 255]);
     expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 54 })).toEqual([69, 211, 224]);
     await act(async () => checkbox("Drums").click());
+    expect(enabled).toHaveBeenLastCalledWith("drums", false);
     expect(container.textContent).not.toContain("D2 (38)");
   });
 

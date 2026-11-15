@@ -59,6 +59,7 @@ export class PlaybackTransport {
   private context: AudioContext | null = null;
   private output: GainNode | null = null;
   private instruments: Partial<Record<TrackId, PreviewInstrument>> = {};
+  private mutedTracks = new Set<TrackId>();
   private notes: { track: TrackId; note: NoteData }[] = [];
   private secondsPerBeat = 0;
   private duration = 0;
@@ -173,6 +174,29 @@ export class PlaybackTransport {
     }
   }
 
+  setTrackEnabled(track: HardwareTrackId | "drums", enabled: boolean) {
+    const targets: readonly TrackId[] = track === "drums" ? drumTrackIds : [track];
+    if (targets.every((id) => this.mutedTracks.has(id) === !enabled)) return;
+    const playing = this.state === "playing";
+    if (playing) {
+      this.offset = this.position();
+      this.clearScheduled();
+    }
+    for (const id of targets) {
+      if (enabled) this.mutedTracks.delete(id);
+      else this.mutedTracks.add(id);
+    }
+    if (playing && this.context) {
+      try {
+        this.beginPlayback();
+      } catch {
+        this.clearScheduled();
+        this.setState("paused");
+        this.onError("Playback failed. Check the output devices and browser audio settings.");
+      }
+    }
+  }
+
   setVolume(volume: number) {
     this.volume = volume;
     if (this.output && this.context) this.output.gain.setValueAtTime(volume / 100, this.context.currentTime);
@@ -252,7 +276,7 @@ export class PlaybackTransport {
     while (this.nextNote < this.notes.length && this.notes[this.nextNote].note.startBeat * this.secondsPerBeat < this.offset) {
       const { track, note } = this.notes[this.nextNote++];
       const remaining = (note.startBeat + note.durationBeats) * this.secondsPerBeat - this.offset;
-      if (remaining > 0) this.instruments[track]!.play(this.playbackNote(track, note), this.startedAt, remaining);
+      if (remaining > 0 && !this.mutedTracks.has(track)) this.instruments[track]!.play(this.playbackNote(track, note), this.startedAt, remaining);
     }
     this.setState("playing");
     this.timer = setInterval(() => this.schedule(), 25);
@@ -351,7 +375,7 @@ export class PlaybackTransport {
       if (noteStart >= horizon) return;
       const { track, note } = this.notes[this.nextNote++];
       const remaining = noteStart + note.durationBeats * this.secondsPerBeat - Math.max(elapsed, noteStart);
-      if (remaining > 0) this.instruments[track]!.play(this.playbackNote(track, note),
+      if (remaining > 0 && !this.mutedTracks.has(track)) this.instruments[track]!.play(this.playbackNote(track, note),
         this.context.currentTime + Math.max(0, noteStart - elapsed), remaining);
     }
   }
