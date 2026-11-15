@@ -6,6 +6,7 @@ import { api, download } from "./api";
 import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
 import { arrangeDrums, drumPatterns } from "./drumPatterns";
 import { hardwareTracks, melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
+import { defaultHardwarePatches, isHardwarePatch, type HardwarePatch, type HardwarePatches } from "./hardwarePatches";
 import { MidiDevices } from "./midi";
 import { melodySeed } from "./melodySeed";
 import { PlaybackTransport, type PlaybackState } from "./playback";
@@ -23,6 +24,7 @@ export interface PreviewHandle { stop(): void }
 const volumeKey = "bassline-preview-volume";
 const channelKey = "bassline-preview-midi-channel";
 const soundsKey = "bassline-preview-track-sounds";
+const patchesKey = "bassline-preview-hardware-patches";
 const soundTrackNames: Record<MelodicTrackId, string> = { synth1: "Synth1", synth2: "Synth2", midi1: "Midi1", midi2: "Midi2" };
 
 function initialTrackSounds(): { sounds: TrackSounds; error: boolean } {
@@ -37,6 +39,21 @@ function initialTrackSounds(): { sounds: TrackSounds; error: boolean } {
     return { sounds: { synth1: value.synth1, synth2: value.synth2, midi1: value.midi1, midi2: value.midi2 }, error: false };
   } catch {
     return { sounds: { ...defaultTrackSounds }, error: true };
+  }
+}
+
+function initialHardwarePatches(): { patches: HardwarePatches; error: boolean } {
+  try {
+    const saved = sessionStorage.getItem(patchesKey);
+    if (saved === null) return { patches: { ...defaultHardwarePatches }, error: false };
+    const value: unknown = JSON.parse(saved);
+    if (!value || typeof value !== "object" || Array.isArray(value) ||
+      !("synth1" in value && "synth2" in value && "midi1" in value && "midi2" in value) ||
+      !isHardwarePatch(value.synth1) || !isHardwarePatch(value.synth2) ||
+      !isHardwarePatch(value.midi1) || !isHardwarePatch(value.midi2)) throw new Error("Invalid hardware patches.");
+    return { patches: { synth1: value.synth1, synth2: value.synth2, midi1: value.midi1, midi2: value.midi2 }, error: false };
+  } catch {
+    return { patches: { ...defaultHardwarePatches }, error: true };
   }
 }
 
@@ -112,6 +129,9 @@ const Preview = forwardRef<PreviewHandle, {
   const [initialSounds] = useState(initialTrackSounds);
   const [sounds, setSounds] = useState(initialSounds.sounds);
   const [soundStorageError, setSoundStorageError] = useState(initialSounds.error);
+  const [initialPatches] = useState(initialHardwarePatches);
+  const [patches, setPatches] = useState(initialPatches.patches);
+  const [patchStorageError, setPatchStorageError] = useState(initialPatches.error);
   const [outputs, setOutputs] = useState<MIDIOutput[]>([]);
   const [discovered, setDiscovered] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -187,6 +207,9 @@ const Preview = forwardRef<PreviewHandle, {
   useEffect(() => {
     for (const id of melodicTrackIds) transport.setTrackSound(id, sounds[id]);
   }, [transport, sounds]);
+  useEffect(() => {
+    for (const id of melodicTrackIds) transport.setTrackPatch(id, patches[id]);
+  }, [transport, patches]);
   useEffect(() => {
     const manager = new MidiDevices((available) => {
       setOutputs(available);
@@ -298,7 +321,7 @@ const Preview = forwardRef<PreviewHandle, {
   const downloadAllTracks = () => {
     try {
       const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
-      download(createAllTracksMidi(tracks, drumNotes, pkg.effectiveConfiguration.bpm, bars), "circuit-tracks-sketch.mid");
+      download(createAllTracksMidi(tracks, drumNotes, pkg.effectiveConfiguration.bpm, bars, patches), "circuit-tracks-sketch.mid");
       setError("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "The all-tracks MIDI file could not be created.");
@@ -364,6 +387,15 @@ const Preview = forwardRef<PreviewHandle, {
     } catch { setSoundStorageError(true); }
   };
 
+  const changePatch = (track: MelodicTrackId, patch: HardwarePatch) => {
+    const next = { ...patches, [track]: patch };
+    setPatches(next);
+    try {
+      sessionStorage.setItem(patchesKey, JSON.stringify(next));
+      setPatchStorageError(false);
+    } catch { setPatchStorageError(true); }
+  };
+
   const patternControls = <div className="pattern-controls">
     {!patternSelection && <><label>Drum pattern
       <select value={patternId} disabled={sketchBusy} onChange={(event) => setPatternId(event.target.value)}>
@@ -406,18 +438,29 @@ const Preview = forwardRef<PreviewHandle, {
     <details className="track-sounds"><summary>Track Sounds
       <span className="track-sounds-summary">
         {melodicTrackIds.map((id) => <span key={id}><span className="track-indicator"
-          style={{ background: `rgb(${hardwareTracks[id].color.join(", ")})` }} aria-hidden="true" /> {soundTrackNames[id]}: {browserSounds[sounds[id]].label}</span>)}
+          style={{ background: `rgb(${hardwareTracks[id].color.join(", ")})` }} aria-hidden="true" /> {soundTrackNames[id]}: {browserSounds[sounds[id]].label} · Patch {patches[id] === null ? "Off" : patches[id] + 1}</span>)}
       </span>
     </summary>
-      {melodicTrackIds.map((id) => <label className="track-sound-row" key={id}>
-        <span><span className="track-indicator" style={{ background: `rgb(${hardwareTracks[id].color.join(", ")})` }} aria-hidden="true" /> {soundTrackNames[id]}</span>
-        <select aria-label={`${soundTrackNames[id]} browser sound`} value={sounds[id]} onChange={(event) => {
-          if (isBrowserSoundId(event.target.value)) changeSound(id, event.target.value);
-        }}>
-          {Object.entries(browserSounds).map(([key, sound]) => <option key={key} value={key}>{sound.label}</option>)}
-        </select>
-      </label>)}
-      <p className="hint">Browser Synth only. Changes apply to newly scheduled notes; MIDI output and exports are unchanged.</p>
+      {melodicTrackIds.map((id) => <fieldset className="track-sound-row" key={id}>
+        <legend><span className="track-indicator" style={{ background: `rgb(${hardwareTracks[id].color.join(", ")})` }} aria-hidden="true" /> {soundTrackNames[id]}</legend>
+        <label>Browser Sound
+          <select aria-label={`${soundTrackNames[id]} browser sound`} value={sounds[id]} onChange={(event) => {
+            if (isBrowserSoundId(event.target.value)) changeSound(id, event.target.value);
+          }}>
+            {Object.entries(browserSounds).map(([key, sound]) => <option key={key} value={key}>{sound.label}</option>)}
+          </select>
+        </label>
+        <label>Hardware Patch
+          <select aria-label={`${soundTrackNames[id]} hardware patch`} value={patches[id] === null ? "" : String(patches[id] + 1)} onChange={(event) => {
+            const value = event.target.value === "" ? null : Number(event.target.value) - 1;
+            if (isHardwarePatch(value)) changePatch(id, value);
+          }}>
+            <option value="">Off</option>
+            {Array.from({ length: 128 }, (_, index) => <option key={index} value={index + 1}>{index + 1}</option>)}
+          </select>
+        </label>
+      </fieldset>)}
+      <p className="hint">Browser sounds affect newly scheduled browser notes. Hardware patches send MIDI Program Change and are included in All Tracks MIDI; device support may vary.</p>
     </details>
     <label>Profile
       <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
@@ -476,6 +519,7 @@ const Preview = forwardRef<PreviewHandle, {
     {discovered && outputs.length === 0 && <p className="hint" role="status">No MIDI outputs found. Connect a device or virtual port and refresh.</p>}
     {storageError && <p className="warning" role="alert">Volume could not be saved for this browser session.</p>}
     {soundStorageError && <p className="warning" role="alert">Track Sounds could not be loaded or saved for this browser session.</p>}
+    {patchStorageError && <p className="warning" role="alert">Hardware Patches could not be loaded or saved for this browser session.</p>}
     {initial.channelError && <p className="warning" role="alert">The previous MIDI channel could not be loaded from this browser session.</p>}
   </div>;
   return <>

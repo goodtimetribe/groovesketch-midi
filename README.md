@@ -83,6 +83,12 @@ bass, chords, and an optional built-in drum pattern on a shared transport.
 In **Track Sounds**, select a browser sound independently for Synth1, Synth2,
 Midi1, and Midi2. Selections last for the browser session and apply to newly
 scheduled notes; they do not affect MIDI output, exports, packages, or share codes.
+Each melodic track also has a separate **Hardware Patch** (Off or 1–128).
+Configured patches send MIDI Program Change on playback and route changes and
+are included in All Tracks MIDI, not the bass-only or bass-and-chords exports.
+Patch selection is session-only; receiving devices must support Program Change
+and may use their own patch numbering or banks. Off sends no Program Change;
+it does not reset a patch already selected on the device.
 Select a pattern to add the drum track; it repeats from the start of each section
 and is truncated at section boundaries.
 The creative toolbar holds sketch and focused-track generation actions.

@@ -20,6 +20,8 @@ function readMidi(bytes: Uint8Array) {
     let tick = 0;
     let name = "";
     const notes: { tick: number; status: number; pitch: number; velocity: number }[] = [];
+    const programs: { tick: number; status: number; program: number }[] = [];
+    const statuses: number[] = [];
     const meta: { type: number; data: number[] }[] = [];
     const variable = () => {
       let value = 0;
@@ -30,6 +32,7 @@ function readMidi(bytes: Uint8Array) {
     while (offset < end) {
       tick += variable();
       const status = bytes[offset++];
+      statuses.push(status);
       if (status === 0xff) {
         const type = bytes[offset++];
         const length = variable();
@@ -37,12 +40,14 @@ function readMidi(bytes: Uint8Array) {
         offset += length;
         if (type === 3) name = new TextDecoder().decode(new Uint8Array(data));
         meta.push({ type, data });
+      } else if ((status & 0xf0) === 0xc0) {
+        programs.push({ tick, status, program: bytes[offset++] });
       } else {
         notes.push({ tick, status, pitch: bytes[offset++], velocity: bytes[offset++] });
       }
     }
     expect(offset).toBe(end);
-    tracks.push({ name, notes, meta, endTick: tick });
+    tracks.push({ name, notes, programs, statuses, meta, endTick: tick });
   }
   expect(offset).toBe(bytes.length);
   return { format, division, tracks };
@@ -81,6 +86,27 @@ it("exports current hardware tracks on Circuit Tracks channels with tempo, timin
     .toEqual([60, 62, 64, 65, 65, 65, 65, 65, 65, 80]);
   expect(result.tracks.slice(1).map((track) => track.endTick)).toEqual([3840, 3840, 3840, 3840, 3840]);
   expect({ content, drums }).toEqual(original);
+});
+
+it("writes configured programs at tick zero before notes, without changing drums", async () => {
+  const content: MelodicContent = {
+    synth1: { role: "bass", notes: [note(36)] },
+    synth2: { role: "chords", notes: [note(60)] },
+    midi1: { role: "lead", notes: [note(76)] },
+    midi2: { role: null, notes: [] },
+  };
+  const patches = { synth1: 0, synth2: null, midi1: 16, midi2: 127 };
+  const file = createAllTracksMidi(content, [note(36)], 120, 1, patches);
+  const result = readMidi(new Uint8Array(await file.arrayBuffer()));
+  expect(result.tracks[1].programs).toEqual([{ tick: 0, status: 0xc0, program: 0 }]);
+  expect(result.tracks[2].programs).toEqual([]);
+  expect(result.tracks[3].programs).toEqual([{ tick: 0, status: 0xc2, program: 16 }]);
+  expect(result.tracks[4].programs).toEqual([{ tick: 0, status: 0xc3, program: 127 }]);
+  expect(result.tracks[5].programs).toEqual([]);
+  expect(result.tracks[1].statuses.indexOf(0xc0)).toBeLessThan(result.tracks[1].statuses.indexOf(0x90));
+  expect(result.tracks[3].statuses.indexOf(0xc2)).toBeLessThan(result.tracks[3].statuses.indexOf(0x92));
+  expect(result.tracks[5].notes[0]).toMatchObject({ status: 0x99, pitch: 60 });
+  expect(() => createAllTracksMidi(content, [], 120, 1, { ...patches, midi2: 128 })).toThrow(/invalid MIDI program/);
 });
 
 it("keeps empty tracks and rejects notes that cannot be represented in MIDI", async () => {

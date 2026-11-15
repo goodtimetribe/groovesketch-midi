@@ -1,5 +1,6 @@
 import type { NoteData } from "./types";
 import type { PreviewInstrument } from "./playback";
+import { isHardwarePatch } from "./hardwarePatches";
 
 // TypeScript's DOM definitions omit the Web MIDI output queue method.
 declare global {
@@ -40,6 +41,13 @@ export class MidiDevices {
     this.disposed = true;
     this.access?.removeEventListener("statechange", this.update);
   }
+}
+
+export function sendProgramChange(output: MIDIOutput, channel: number, program: number) {
+  if (!Number.isInteger(channel) || channel < 0 || channel > 15 || !isHardwarePatch(program))
+    throw new RangeError("Invalid MIDI channel or program.");
+  if (output.state !== "connected") throw new Error("MIDI output disconnected.");
+  output.send([0xc0 | channel, program]);
 }
 
 export class MidiInstrument implements PreviewInstrument {
