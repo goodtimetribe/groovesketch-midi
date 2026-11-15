@@ -137,4 +137,15 @@ describe("piano roll", () => {
     expect(container.textContent).toContain("Visible notes (2)");
   });
 
+  it("shows drum notes as a focusable ghost track", async () => {
+    const drum = { note: "D2", midiNote: 38, startBeat: 0.5, durationBeats: 0.25, velocity: 100 };
+    await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped" chordNotes={[chord]} drumNotes={[drum]} />));
+    expect(container.textContent).toContain("Visible notes (3)");
+    expect(container.textContent).toContain("D2 (38)");
+    await changeSelect("Focus", "drums");
+    expect(fills.at(-1)).toBe(`rgba(82, 222, 181, ${0.35 + 100 / 127 * 0.65})`);
+    await act(async () => checkbox("Drums").click());
+    expect(container.textContent).not.toContain("D2 (38)");
+  });
+
 });

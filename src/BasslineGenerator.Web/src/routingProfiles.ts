@@ -13,10 +13,11 @@ export interface RoutingProfile {
   name: string;
   routing: Routing;
   chordRouting: Routing;
+  drumRouting: Routing;
 }
 
 export interface RoutingProfiles {
-  version: 2;
+  version: 3;
   activeId: string | null;
   profiles: RoutingProfile[];
 }
@@ -25,6 +26,7 @@ export const routingProfilesKey = "bassline-routing-profiles";
 
 const browser = (): Routing => ({ destination: { kind: "browser" }, channel: 0, instrument: "bass" });
 const chordBrowser = (): Routing => ({ ...browser(), channel: 1 });
+const drumBrowser = (): Routing => ({ ...browser(), channel: 9 });
 const midi = (channel: number, nameContains?: string): Routing => ({
   destination: { kind: "midi", deviceId: null, deviceName: null, ...(nameContains ? { nameContains } : {}) },
   channel, instrument: "bass",
@@ -32,13 +34,13 @@ const midi = (channel: number, nameContains?: string): Routing => ({
 
 export function defaultRoutingProfiles(): RoutingProfiles {
   return {
-    version: 2, activeId: "browser",
+    version: 3, activeId: "browser",
     profiles: [
-      { id: "browser", name: "Browser Preview", routing: browser(), chordRouting: chordBrowser() },
-      { id: "circuit-1", name: "Circuit Tracks Synth 1", routing: midi(0, "Circuit Tracks"), chordRouting: chordBrowser() },
-      { id: "circuit-2", name: "Circuit Tracks Synth 2", routing: midi(1, "Circuit Tracks"), chordRouting: chordBrowser() },
-      { id: "midi-3", name: "External MIDI Channel 3", routing: midi(2), chordRouting: chordBrowser() },
-      { id: "midi-4", name: "External MIDI Channel 4", routing: midi(3), chordRouting: chordBrowser() },
+      { id: "browser", name: "Browser Preview", routing: browser(), chordRouting: chordBrowser(), drumRouting: drumBrowser() },
+      { id: "circuit-1", name: "Circuit Tracks Synth 1", routing: midi(0, "Circuit Tracks"), chordRouting: chordBrowser(), drumRouting: drumBrowser() },
+      { id: "circuit-2", name: "Circuit Tracks Synth 2", routing: midi(1, "Circuit Tracks"), chordRouting: chordBrowser(), drumRouting: drumBrowser() },
+      { id: "midi-3", name: "External MIDI Channel 3", routing: midi(2), chordRouting: chordBrowser(), drumRouting: drumBrowser() },
+      { id: "midi-4", name: "External MIDI Channel 4", routing: midi(3), chordRouting: chordBrowser(), drumRouting: drumBrowser() },
     ],
   };
 }
@@ -55,15 +57,19 @@ function isRouting(value: unknown): value is Routing {
     && (d.nameContains === undefined || typeof d.nameContains === "string"));
 }
 
-function isLegacyProfile(value: unknown): value is Omit<RoutingProfile, "chordRouting"> {
+function isLegacyProfile(value: unknown): value is Omit<RoutingProfile, "chordRouting" | "drumRouting"> {
   if (!value || typeof value !== "object") return false;
   const p = value as Partial<RoutingProfile>;
   return typeof p.id === "string" && !!p.id && typeof p.name === "string" && !!p.name.trim()
     && isRouting(p.routing);
 }
 
-function isProfile(value: unknown): value is RoutingProfile {
+function isChordProfile(value: unknown): value is Omit<RoutingProfile, "drumRouting"> {
   return isLegacyProfile(value) && "chordRouting" in value && isRouting(value.chordRouting);
+}
+
+function isProfile(value: unknown): value is RoutingProfile {
+  return isChordProfile(value) && "drumRouting" in value && isRouting(value.drumRouting);
 }
 
 export function loadRoutingProfiles(storage: Storage): RoutingProfiles {
@@ -72,17 +78,18 @@ export function loadRoutingProfiles(storage: Storage): RoutingProfiles {
   const value: unknown = JSON.parse(saved);
   if (!value || typeof value !== "object") throw new Error("Invalid routing profiles.");
   const data = value as { version?: number; activeId?: unknown; profiles?: unknown };
-  if ((data.version !== 1 && data.version !== 2) || !Array.isArray(data.profiles))
+  if ((data.version !== 1 && data.version !== 2 && data.version !== 3) || !Array.isArray(data.profiles))
     throw new Error("Invalid routing profiles.");
   const profiles: RoutingProfile[] = data.profiles.map((profile: unknown) => {
-    if (data.version === 1 && isLegacyProfile(profile)) return { ...profile, chordRouting: chordBrowser() };
-    if (data.version === 2 && isProfile(profile)) return profile;
+    if (data.version === 1 && isLegacyProfile(profile)) return { ...profile, chordRouting: chordBrowser(), drumRouting: drumBrowser() };
+    if (data.version === 2 && isChordProfile(profile)) return { ...profile, drumRouting: drumBrowser() };
+    if (data.version === 3 && isProfile(profile)) return profile;
     throw new Error("Invalid routing profiles.");
   });
   if (new Set(profiles.map((profile) => profile.id)).size !== profiles.length
     || !(data.activeId === null || typeof data.activeId === "string" && profiles.some((p) => p.id === data.activeId)))
     throw new Error("Invalid routing profiles.");
-  return { version: 2, activeId: data.activeId, profiles };
+  return { version: 3, activeId: data.activeId, profiles };
 }
 
 export function saveRoutingProfiles(storage: Storage, profiles: RoutingProfiles): void {
