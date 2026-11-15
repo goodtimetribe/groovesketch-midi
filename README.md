@@ -80,17 +80,38 @@ pause, stop, restart, and loop control the preview, and synth volume is remember
 the current browser session. Preview plays bass, chords, and an optional built-in
 drum pattern on a shared transport. Select a pattern to add the drum track; it
 repeats from the start of each section and is truncated at section boundaries.
-In the piano roll, focus Synth1, Synth2, Midi1, or Midi2, choose **Melody**,
-and select **Generate Melody** to replace that track with a chord-aware Lead.
+The creative toolbar holds sketch and focused-track generation actions.
+Character controls can be expanded independently of the other settings.
+On a new visit, the app selects a random key, scale, style, progression, and
+seed, a style-appropriate tempo, and a default drum pattern. Once the choices
+load, select **Generate Sketch**, then **Play**; adjust the settings first if
+desired. The selected seed and settings make the sketch reproducible.
+**Generate Sketch** requires a selected drum pattern and generates a new bass,
+chords, melody, and drum part from the current settings and seed. It replaces
+all preview tracks: bass goes to Synth1, chords to Synth2, melody to Midi1,
+Midi2 is cleared, and the selected pattern is applied to Drums. The existing
+sketch remains intact if any part fails. A blank seed is chosen once and shown
+in the resulting settings so the sketch can be reproduced with the same pattern.
+Melody, drums, and subsequent focused-track edits are not included in packages,
+share codes, or bass or bass-and-chords MIDI exports.
+In the piano roll, focus Synth1, Synth2, Midi1, or Midi2, then choose **Melody**
+and select **Generate Melody** in the creative toolbar to replace that track
+with a chord-aware Lead.
 The same package seed and musical settings reproduce the same two-bar motif;
 it repeats across sections with pitches adapted to the progression. Focused
-track changes are preview-only and are not saved in packages, share codes, or
-the Bass and Bass + Chords exports. Routing is unchanged.
+track changes are not saved in packages, share codes, or the Bass and Bass +
+Chords exports. Routing is unchanged.
 Drums use the browser's pitched preview synth by default, not a drum kit. Route
 them to a MIDI drum instrument for percussion. Drum patterns are not included
 in saved packages, share codes, or the Bass and Bass + Chords exports.
-**Download Circuit Tracks Drum MIDI** exports the selected pattern as a
-separate drum-only MIDI file.
+Use the arrow beside **Download Bass + Chords MIDI** to download bass alone or
+export the applied pattern as a separate **Circuit Tracks Drum MIDI** file.
+**Download All Tracks MIDI (Circuit Tracks)** exports the current preview
+content, including focused-track edits, in one Type 1 MIDI file. It uses
+separate Synth1, Synth2, Midi1, Midi2, and Drums tracks on Circuit Tracks
+default channels 1, 2, 3, 4, and 10, regardless of playback routing or piano
+roll visibility. Drum notes use the Circuit Tracks mapping described below.
+The export uses the generated tempo and arrangement, not unapplied settings.
 The library includes curated House, Techno, Trance, Electro, Breakbeat, and
 Synthwave grooves. Each pattern's description suggests a percussion sound for
 Drum 4; select that sample on the Circuit Tracks itself.

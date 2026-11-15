@@ -125,6 +125,29 @@ it("generates into the focused destination, preserving other tracks and routing 
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x92, 60, 90]);
 });
 
+it("keeps the relocated generator synchronized with piano-roll focus", async () => {
+  const generatorPane = document.createElement("div");
+  document.body.appendChild(generatorPane);
+  try {
+    await act(async () => root.render(<Preview pkg={pkg} disabled={false} generatorPane={generatorPane} />));
+    const generator = generatorPane.querySelector("select")!;
+    expect(container.querySelector('label select') === generator).toBe(false);
+    await select("Focus", "midi1");
+    await act(async () => {
+      generator.value = "melody";
+      generator.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const generate = [...generatorPane.querySelectorAll("button")].find((item) => item.textContent === "Generate Melody")!;
+    await act(async () => generate.click());
+    expect(container.textContent).toContain("Midi1 · Lead");
+    await select("Focus", "drums");
+    expect(generator.value).toBe("drums");
+    expect(generatorPane.querySelector("button")?.textContent).toBe("Apply Pattern");
+  } finally {
+    generatorPane.remove();
+  }
+});
+
 it("routes Midi1 and Midi2 independently, rejects collisions, and keeps profile format compatible", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");

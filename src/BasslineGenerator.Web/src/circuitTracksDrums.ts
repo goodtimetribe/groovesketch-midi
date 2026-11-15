@@ -1,4 +1,5 @@
 import type { NoteData } from "./types";
+import { chunk, variableLength } from "./midiFile";
 
 const circuitTracksDrumNotes: Record<number, number> = {
   36: 60,
@@ -64,23 +65,4 @@ export function createCircuitTracksDrumMidi(notes: NoteData[], bpm: number, bars
   ];
   const buffer = new Uint8Array(file).buffer;
   return new Blob([buffer], { type: "audio/midi" });
-}
-
-function variableLength(value: number): number[] {
-  let remaining = Math.floor(value);
-  const bytes = [remaining & 0x7f];
-  while ((remaining >>= 7) > 0) bytes.unshift((remaining & 0x7f) | 0x80);
-  return bytes;
-}
-
-function chunk(id: string, data: number[]): number[] {
-  const length = data.length;
-  return [
-    ...Array.from(id, (character) => character.charCodeAt(0)),
-    (length >>> 24) & 0xff,
-    (length >>> 16) & 0xff,
-    (length >>> 8) & 0xff,
-    length & 0xff,
-    ...data,
-  ];
 }

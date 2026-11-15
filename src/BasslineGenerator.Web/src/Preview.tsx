@@ -1,4 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { createAllTracksMidi } from "./allTracksMidi";
 import PianoRoll, { type FocusTrack, type GeneratorType } from "./PianoRoll";
 import { api, download } from "./api";
 import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
@@ -6,6 +8,7 @@ import { arrangeDrums, drumPatterns } from "./drumPatterns";
 import { hardwareTracks } from "./hardwareTracks";
 import { MidiDevices } from "./midi";
 import { PlaybackTransport, type PlaybackState } from "./playback";
+import { validateMelodyNotes, type Sketch } from "./sketch";
 import { readChordNotes, type MelodicContent } from "./trackView";
 import {
   defaultRoutingProfiles, deleteProfile, loadRoutingProfiles, putProfile, resolveOutput, saveRoutingProfiles,
@@ -27,17 +30,6 @@ function initialContent(pkg: GenerationPackage): MelodicContent {
   };
 }
 
-function validateMelodyNotes(value: unknown): NoteData[] {
-  const isNoteData = (note: unknown): note is NoteData => typeof note === "object" && note !== null &&
-    "note" in note && typeof note.note === "string" && note.note.trim().length > 0 &&
-    "midiNote" in note && typeof note.midiNote === "number" && Number.isInteger(note.midiNote) && note.midiNote >= 0 && note.midiNote <= 127 &&
-    "startBeat" in note && typeof note.startBeat === "number" && Number.isFinite(note.startBeat) && note.startBeat >= 0 &&
-    "durationBeats" in note && typeof note.durationBeats === "number" && Number.isFinite(note.durationBeats) && note.durationBeats > 0 &&
-    "velocity" in note && typeof note.velocity === "number" && Number.isInteger(note.velocity) && note.velocity >= 1 && note.velocity <= 127;
-  if (!Array.isArray(value) || value.length === 0 || !value.every(isNoteData)) throw new Error("The melody response was invalid.");
-  return value;
-}
-
 function initialProfiles() {
   try {
     const data = loadRoutingProfiles(localStorage);
@@ -55,7 +47,14 @@ function initialProfiles() {
   catch { return { data: defaultRoutingProfiles(), error: "Routing profiles could not be loaded. Saved profiles have not been changed.", channelError: false }; }
 }
 
-const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: boolean }>(function Preview({ pkg, disabled }, ref) {
+const Preview = forwardRef<PreviewHandle, {
+  pkg: GenerationPackage; disabled: boolean; playbackPane?: HTMLElement | null; generatorPane?: HTMLElement | null;
+  patternPane?: HTMLElement | null; drumDownloadPane?: HTMLElement | null; allDownloadPane?: HTMLElement | null;
+  onPreviewDownload?: () => void;
+  sketch?: Sketch | null; sketchBusy?: boolean;
+  patternSelection?: { id: string; onChange: (id: string) => void };
+  onGeneratingChange?: (generating: boolean) => void;
+}>(function Preview({ pkg, disabled, playbackPane, generatorPane, patternPane, drumDownloadPane, allDownloadPane, onPreviewDownload, sketch, sketchBusy, patternSelection, onGeneratingChange }, ref) {
   const [initial] = useState(initialProfiles);
   const [profiles, setProfiles] = useState(initial.data);
   const initialProfile = initial.data.profiles.find((p) => p.id === initial.data.activeId);
@@ -64,24 +63,30 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
   const [drumRouting, setDrumRouting] = useState<Routing>(() => initialProfile?.drumRouting ?? defaultRoutingProfiles().profiles[0].drumRouting);
   const [midi1Routing, setMidi1Routing] = useState<Routing>(() => ({ destination: { kind: "browser" }, channel: hardwareTracks.midi1.defaultChannel, instrument: "bass" }));
   const [midi2Routing, setMidi2Routing] = useState<Routing>(() => ({ destination: { kind: "browser" }, channel: hardwareTracks.midi2.defaultChannel, instrument: "bass" }));
-  const [patternId, setPatternId] = useState("");
-  const [appliedPatternId, setAppliedPatternId] = useState("");
-  const [content, setContent] = useState(() => ({ pkg, tracks: initialContent(pkg) }));
-  const tracks = useMemo(() => content.pkg === pkg ? content.tracks : initialContent(pkg), [content, pkg]);
+  const [localPatternId, setLocalPatternId] = useState("");
+  const patternId = patternSelection?.id ?? localPatternId;
+  const setPatternId = patternSelection?.onChange ?? setLocalPatternId;
+  const [appliedPattern, setAppliedPattern] = useState(() => ({ pkg, id: sketch?.pkg === pkg ? sketch.patternId : "" }));
+  const appliedPatternId = appliedPattern.pkg === pkg ? appliedPattern.id : sketch?.pkg === pkg ? sketch.patternId : appliedPattern.id;
+  const setAppliedPatternId = (id: string) => setAppliedPattern({ pkg, id });
+  const [content, setContent] = useState(() => ({ pkg, tracks: sketch?.pkg === pkg ? sketch.tracks : initialContent(pkg) }));
+  const tracks = useMemo(() => content.pkg === pkg ? content.tracks : sketch?.pkg === pkg ? sketch.tracks : initialContent(pkg), [content, pkg, sketch]);
   const [generating, setGenerating] = useState(false);
   const generationRevision = useRef(0);
   const selectedPattern = drumPatterns.find((item) => item.id === patternId);
   const drumNotes = useMemo(() => {
+    if (sketch?.pkg === pkg && sketch.patternId === appliedPatternId) return sketch.drumNotes;
     const pattern = drumPatterns.find((item) => item.id === appliedPatternId);
     return pattern ? arrangeDrums(pattern, pkg.effectiveConfiguration.sections) : [];
-  }, [appliedPatternId, pkg]);
+  }, [appliedPatternId, pkg, sketch]);
   const drumNotesRef = useRef(drumNotes);
   drumNotesRef.current = drumNotes;
   const [profileName, setProfileName] = useState(initialProfile?.name ?? "");
   const [profileError, setProfileError] = useState(initial.error);
   const [state, setState] = useState<PlaybackState>("stopped");
   const [looping, setLooping] = useState(false);
-  const [chords, setChords] = useState<{ pkg: GenerationPackage; notes: NoteData[]; error: string } | null>(null);
+  const [chords, setChords] = useState<{ pkg: GenerationPackage; notes: NoteData[]; error: string } | null>(
+    () => sketch?.pkg === pkg ? { pkg, notes: sketch.chordNotes, error: "" } : null);
   const [retry, setRetry] = useState(0);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState(false);
@@ -113,15 +118,21 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     { output: midi2Output, channel: midi2Routing.channel }];
   const collision = routes.some((route, index) => routes.slice(index + 1).some((other) =>
     route.output && route.output === other.output && route.channel === other.channel));
-  const readyChords = chords?.pkg === pkg ? chords : null;
+  const readyChords = chords?.pkg === pkg ? chords : sketch?.pkg === pkg ? { pkg, notes: sketch.chordNotes, error: "" } : null;
 
   useImperativeHandle(ref, () => ({ stop: () => transport.stop() }), [transport]);
   useEffect(() => {
-    setContent({ pkg, tracks: initialContent(pkg) });
+    setContent({ pkg, tracks: sketch?.pkg === pkg ? sketch.tracks : initialContent(pkg) });
+    setAppliedPattern((current) => current.pkg === pkg ? current : { pkg, id: sketch?.pkg === pkg ? sketch.patternId : current.id });
     setGenerating(false);
     return () => { generationRevision.current++; };
-  }, [pkg]);
+  }, [pkg, sketch]);
+  useEffect(() => { onGeneratingChange?.(generating); }, [generating, onGeneratingChange]);
   useEffect(() => {
+    if (sketch?.pkg === pkg) {
+      setChords({ pkg, notes: sketch.chordNotes, error: "" });
+      return;
+    }
     let cancelled = false;
     setChords(null);
     void api.combinedMidi(pkg).then((blob) => blob.arrayBuffer()).then(readChordNotes).then(
@@ -137,7 +148,7 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       },
     );
     return () => { cancelled = true; };
-  }, [transport, pkg, retry]);
+  }, [transport, pkg, retry, sketch]);
   useEffect(() => {
     transport.load(pkg, [], drumNotesRef.current, {
       synth1: tracks.synth1.notes, synth2: tracks.synth2.notes,
@@ -255,6 +266,15 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       setError(e instanceof Error ? e.message : "Circuit Tracks drum MIDI could not be created.");
     }
   };
+  const downloadAllTracks = () => {
+    try {
+      const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
+      download(createAllTracksMidi(tracks, drumNotes, pkg.effectiveConfiguration.bpm, bars), "circuit-tracks-sketch.mid");
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The all-tracks MIDI file could not be created.");
+    }
+  };
   const generateTrack = (track: FocusTrack, generator: GeneratorType) => {
     if (generator === "drums") {
       if (track === "drums" && selectedPattern) setAppliedPatternId(selectedPattern.id);
@@ -306,37 +326,23 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     });
   };
 
-  return <section className="card preview" aria-label="Bassline preview">
-    <p className="hint">Focus a track, select a generator, then generate. Track changes are preview-only and are not included in package or bass and chords exports.</p>
-    <label>Drum pattern
-      <select value={patternId} onChange={(event) => setPatternId(event.target.value)}>
+  const patternControls = <div className="pattern-controls">
+    {!patternSelection && <><label>Drum pattern
+      <select value={patternId} disabled={sketchBusy} onChange={(event) => setPatternId(event.target.value)}>
         <option value="">None</option>
         {drumPatterns.map((pattern) => <option key={pattern.id} value={pattern.id}>{pattern.name} ({pattern.bars} {pattern.bars === 1 ? "bar" : "bars"})</option>)}
       </select>
     </label>
-    {selectedPattern && <p className="hint">{selectedPattern.description}</p>}
+    {selectedPattern && <p className="hint">{selectedPattern.description}</p>}</>}
     <p className="hint">Select Drums in Focus and choose Apply Pattern to update the drum content.</p>
     <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === appliedPatternId)?.name ?? "None"}</p>
-    <button type="button" disabled={!appliedPatternId} onClick={() => setAppliedPatternId("")}>Clear Drums</button>
-    <button type="button" disabled={!drumNotes.length} onClick={downloadCircuitTracksDrums}>Download Circuit Tracks Drum MIDI</button>
+    <button type="button" disabled={sketchBusy || !appliedPatternId} onClick={() => setAppliedPatternId("")}>Clear Drums</button>
     <p className="hint">Exports the applied drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>
-    <div className="routing-profiles" role="group" aria-label="Routing profiles">
-      <label>Profile
-        <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
-          {!profiles.activeId && <option value="">No profile selected</option>}
-          {profiles.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-        </select>
-      </label>
-      <label>Profile name
-        <input value={profileName} onChange={(event) => setProfileName(event.target.value)} maxLength={100} />
-      </label>
-      <div className="transport-buttons">
-        <button type="button" onClick={() => saveProfile(false)}>Save Profile</button>
-        <button type="button" onClick={() => saveProfile(true)} disabled={!profiles.activeId}>Update Profile</button>
-        <button type="button" onClick={removeProfile} disabled={!profiles.activeId}>Delete Profile</button>
-      </div>
-      <p className="hint">Routing edits apply immediately; update the profile to keep them.</p>
-    </div>
+  </div>;
+  const drumDownload = <button type="button" disabled={!drumNotes.length} onClick={() => { onPreviewDownload?.(); downloadCircuitTracksDrums(); }}>Download Circuit Tracks Drum MIDI</button>;
+  const allDownload = <button type="button" disabled={disabled || generating || !readyChords || !!readyChords.error}
+    onClick={() => { onPreviewDownload?.(); downloadAllTracks(); }}>Download All Tracks MIDI (Circuit Tracks)</button>;
+  const playbackControls = <div className="preview" aria-label="Bassline preview">
     <div className="transport" role="group" aria-label="Playback controls">
       <div><p className="eyebrow">PREVIEW TRANSPORT</p><h2>Listen</h2></div>
       <div className="transport-buttons">
@@ -349,6 +355,35 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
           setLooping(!looping);
         }}>{looping ? "Loop Enabled" : "Loop"}</button>
       </div>
+      <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
+      {[routing, chordRouting, midi1Routing, midi2Routing, drumRouting].some((route) => route.destination.kind === "browser") &&
+        <label className="volume">Volume <span>{volume}%</span>
+          <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
+            disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
+        </label>}
+      <button type="button" onClick={() => void refreshDevices()} disabled={refreshing}>
+        {refreshing ? "Refreshing..." : "Refresh Devices"}
+      </button>
+    </div>
+    <label>Profile
+      <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
+        {!profiles.activeId && <option value="">No profile selected</option>}
+        {profiles.profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+      </select>
+    </label>
+    <details className="hardware-routing"><summary>Hardware &amp; routing</summary>
+    <div className="routing-profiles" role="group" aria-label="Routing profiles">
+      <label>Profile name
+        <input value={profileName} onChange={(event) => setProfileName(event.target.value)} maxLength={100} />
+      </label>
+      <div className="transport-buttons">
+        <button type="button" onClick={() => saveProfile(false)}>Save Profile</button>
+        <button type="button" onClick={() => saveProfile(true)} disabled={!profiles.activeId}>Update Profile</button>
+        <button type="button" onClick={removeProfile} disabled={!profiles.activeId}>Delete Profile</button>
+      </div>
+      <p className="hint">Routing edits apply immediately; update the profile to keep them.</p>
+    </div>
+    <div className="routing">
       {([
         { name: "Bass", routing, output, unavailable, setRouting },
         { name: "Chords", routing: chordRouting, output: chordOutput, unavailable: chordUnavailable, setRouting: setChordRouting },
@@ -371,15 +406,9 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
           </select>
         </label>}
       </fieldset>)}
-      <button type="button" onClick={() => void refreshDevices()} disabled={refreshing}>
-        {refreshing ? "Refreshing..." : "Refresh Devices"}
-      </button>
-      <label className="volume">Volume <span>{volume}%</span>
-        <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
-          disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
-      </label>
-      <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
     </div>
+    <p className="hint">Bass and Chords routing control Synth1 and Synth2 respectively. Midi1 and Midi2 routing is temporary and is not saved in profiles.</p>
+    </details>
     {unavailable && <p className="warning" role="status">Bass MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
     {chordUnavailable && <p className="warning" role="status">Chords MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
     {drumUnavailable && <p className="warning" role="status">Drums MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
@@ -393,11 +422,17 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     {discovered && outputs.length === 0 && <p className="hint" role="status">No MIDI outputs found. Connect a device or virtual port and refresh.</p>}
     {storageError && <p className="warning" role="alert">Volume could not be saved for this browser session.</p>}
     {initial.channelError && <p className="warning" role="alert">The previous MIDI channel could not be loaded from this browser session.</p>}
-    <p className="hint">Bass and Chords routing control Synth1 and Synth2 respectively. Midi1 and Midi2 routing is temporary and is not saved in profiles.</p>
+  </div>;
+  return <>
+    {playbackPane ? createPortal(playbackControls, playbackPane) : playbackControls}
+    {patternPane ? createPortal(patternControls, patternPane) : patternControls}
+    {drumDownloadPane ? createPortal(drumDownload, drumDownloadPane) : drumDownload}
+    {allDownloadPane ? createPortal(allDownload, allDownloadPane) : allDownload}
     <PianoRoll pkg={pkg} transport={transport} playbackState={state} chordNotes={readyChords?.notes ?? []} drumNotes={drumNotes}
+      generatorPane={generatorPane}
       workflow={{ content: tracks, busy: generating, disabled: disabled || !readyChords || !!readyChords.error,
         patternSelected: !!selectedPattern, generate: generateTrack }} />
-  </section>;
+  </>;
 });
 
 export default Preview;
