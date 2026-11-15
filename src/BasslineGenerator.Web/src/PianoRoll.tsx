@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "./api";
 import type { PlaybackState, PlaybackTransport } from "./playback";
-import { createTracks, readChordNotes, tracksForRendering } from "./trackView";
+import { createTracks, tracksForRendering } from "./trackView";
 import type { GenerationPackage, NoteData } from "./types";
 
-interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState }
+interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[] }
 
-const noNotes: NoteData[] = [];
-
-export default function PianoRoll({ pkg, transport, playbackState }: Props) {
+export default function PianoRoll({ pkg, transport, playbackState, chordNotes }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
   const [startBar, setStartBar] = useState(0);
@@ -16,9 +13,6 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
   const [selected, setSelected] = useState<{ trackId: string; note: NoteData } | null>(null);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [focus, setFocus] = useState("bass");
-  const [retry, setRetry] = useState(0);
-  const [chords, setChords] = useState<{ pkg: GenerationPackage; notes: NoteData[]; error: string } | null>(null);
-  const chordNotes = chords?.pkg === pkg ? chords.notes : noNotes;
   const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility), [pkg, chordNotes, visibility]);
   const rendering = useMemo(() => tracksForRendering(tracks, focus), [tracks, focus]);
   const notes = useMemo(() => rendering.flatMap(({ track }) => track.notes), [rendering]);
@@ -30,15 +24,6 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
   const high = notes.length ? Math.min(127, notes.reduce((a, n) => Math.max(a, n.midiNote), 0) + 1) : 48;
 
   useEffect(() => { setStartBar(0); setSelected(null); }, [pkg]);
-  useEffect(() => {
-    let cancelled = false;
-    setChords(null);
-    void api.combinedMidi(pkg).then((blob) => blob.arrayBuffer()).then(readChordNotes).then(
-      (notes) => { if (!cancelled) setChords({ pkg, notes, error: "" }); },
-      (error: unknown) => { if (!cancelled) setChords({ pkg, notes: [], error: error instanceof Error ? error.message : "Chord notes could not be loaded." }); },
-    );
-    return () => { cancelled = true; };
-  }, [pkg, retry]);
   useEffect(() => {
     if (playbackState === "stopped") setStartBar(0);
   }, [playbackState]);
@@ -128,9 +113,6 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
         {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
       </select></label>
     </div>
-    {chords?.pkg === pkg && chords.error
-      ? <p className="error" role="alert">Chord notes could not be displayed: {chords.error} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry</button></p>
-      : chords?.pkg !== pkg && <p className="hint" role="status">Loading chord notes…</p>}
     <div className="sections" aria-label="Arrangement sections">
       {sections.map((section, index) => {
         const bar = sections.slice(0, index).reduce((sum, s) => sum + s.bars, 0);

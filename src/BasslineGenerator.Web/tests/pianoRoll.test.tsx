@@ -2,7 +2,6 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../src/api";
 import { initialRequest } from "../src/domain";
 import PianoRoll from "../src/PianoRoll";
 import { PlaybackTransport } from "../src/playback";
@@ -88,13 +87,12 @@ describe("piano roll", () => {
       fillText() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {},
     };
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
-    vi.spyOn(api, "combinedMidi").mockResolvedValue({ arrayBuffer: async () => midi() } as Blob);
     transport = new PlaybackTransport(() => {});
     transport.load(pkg);
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped" />));
+    await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped" chordNotes={[chord]} />));
   });
 
   afterEach(async () => {
@@ -124,7 +122,6 @@ describe("piano roll", () => {
     expect(container.textContent).toContain("C2 (36)");
     expect(JSON.stringify(pkg)).toBe(before);
     expect(load).not.toHaveBeenCalled();
-    expect(api.combinedMidi).toHaveBeenCalledOnce();
   });
 
   it("preserves zoom, paging, note inspection, and selection", async () => {
@@ -140,26 +137,4 @@ describe("piano roll", () => {
     expect(container.textContent).toContain("Visible notes (2)");
   });
 
-  it("reports chord load failures and allows retry without hiding bass", async () => {
-    vi.mocked(api.combinedMidi).mockRejectedValueOnce(new Error("Too many requests."));
-    const next = { ...pkg, seed: 8 };
-    await act(async () => root.render(<PianoRoll pkg={next} transport={transport} playbackState="stopped" />));
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Too many requests.");
-    expect(container.textContent).toContain("Visible notes (1)");
-    await act(async () => button("Retry").click());
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(container.textContent).toContain("Visible notes (2)");
-  });
-
-  it("ignores an earlier package's delayed chord response", async () => {
-    let resolve!: (blob: Blob) => void;
-    vi.mocked(api.combinedMidi).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    const old = { ...pkg, seed: 8 };
-    const next = { ...pkg, seed: 9 };
-    await act(async () => root.render(<PianoRoll pkg={old} transport={transport} playbackState="stopped" />));
-    await act(async () => root.render(<PianoRoll pkg={next} transport={transport} playbackState="stopped" />));
-    expect(container.textContent).toContain("Visible notes (2)");
-    await act(async () => resolve({ arrayBuffer: async () => midi([]) } as Blob));
-    expect(container.textContent).toContain("Visible notes (2)");
-  });
 });
