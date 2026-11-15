@@ -42,6 +42,7 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
   const [chordRouting, setChordRouting] = useState<Routing>(() => initialProfile?.chordRouting ?? defaultRoutingProfiles().profiles[0].chordRouting);
   const [drumRouting, setDrumRouting] = useState<Routing>(() => initialProfile?.drumRouting ?? defaultRoutingProfiles().profiles[0].drumRouting);
   const [patternId, setPatternId] = useState("");
+  const selectedPattern = drumPatterns.find((item) => item.id === patternId);
   const drumNotes = useMemo(() => {
     const pattern = drumPatterns.find((item) => item.id === patternId);
     return pattern ? arrangeDrums(pattern, pkg.effectiveConfiguration.sections) : [];
@@ -228,8 +229,9 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
         {drumPatterns.map((pattern) => <option key={pattern.id} value={pattern.id}>{pattern.name} ({pattern.bars} {pattern.bars === 1 ? "bar" : "bars"})</option>)}
       </select>
     </label>
+    {selectedPattern && <p className="hint">{selectedPattern.description}</p>}
     <button type="button" disabled={!drumNotes.length} onClick={downloadCircuitTracksDrums}>Download Circuit Tracks Drum MIDI</button>
-    <p className="hint">Exports the selected drum pattern only, mapped to Circuit Tracks Drum 1–3.</p>
+    <p className="hint">Exports the selected drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>
     <div className="routing-profiles" role="group" aria-label="Routing profiles">
       <label>Profile
         <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
