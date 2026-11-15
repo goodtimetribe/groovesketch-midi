@@ -58,6 +58,10 @@ summary { cursor: pointer; font-weight: 700; }
 .volume { flex: 1 1 150px; max-width: 240px; margin: 0; }
 .volume span { color: #e6ecf5; }
 .transport-state { color: #aab9ca; font-size: .8rem; }
+.track-controls, .track-controls fieldset { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.track-controls legend { float: left; margin-right: 12px; font-size: .85rem; font-weight: 700; }
+.track-controls label { margin: 6px 0; }
+.track-controls > label { flex-direction: row; align-items: center; }
 .roll-canvas { position: relative; }
 .playhead { position: absolute; top: 26px; bottom: 1px; width: 2px; background: #ffe294; pointer-events: none; }
 .roll canvas { display: block; width: 100%; border: 1px solid #34445a; border-radius: 6px; }
