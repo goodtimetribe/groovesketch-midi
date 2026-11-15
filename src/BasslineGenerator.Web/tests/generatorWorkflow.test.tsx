@@ -3,6 +3,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../src/api";
+import * as apiModule from "../src/api";
+import * as allTracksMidi from "../src/allTracksMidi";
 import { initialRequest } from "../src/domain";
 import Preview from "../src/Preview";
 import type { GenerationPackage, NoteData } from "../src/types";
@@ -123,6 +125,43 @@ it("generates into the focused destination, preserving other tracks and routing 
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x90, 33, 64]);
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x91, 48, 80]);
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x92, 60, 90]);
+});
+
+it("auditions track checkboxes during playback without removing tracks from export", async () => {
+  const exportMidi = vi.spyOn(allTracksMidi, "createAllTracksMidi");
+  vi.spyOn(apiModule, "download").mockImplementation(() => {});
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  await select("Focus", "midi1");
+  await select("Generator", "melody");
+  await act(async () => button("Generate Melody").click());
+  await select("Focus", "drums");
+  await select("Drum pattern", "four-on-the-floor");
+  await act(async () => button("Apply Pattern").click());
+  await act(async () => button("Refresh Devices").click());
+  for (const track of ["Bass", "Chords", "Midi1", "Drums"]) await select(`${track} Output`, "circuit");
+  await act(async () => button("Play").click());
+  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x92, 76, 88]);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(true);
+
+  const checkbox = (name: string) => [...container.querySelectorAll("label")]
+    .find((label) => label.textContent?.trim() === name)!.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  output.send.mockClear();
+  await act(async () => checkbox("Midi1 · Lead").click());
+  expect(container.textContent).not.toContain("E5 (76)");
+  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x82, 76, 0]);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x92)).toBe(false);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(true);
+  output.send.mockClear();
+  await act(async () => checkbox("Drums").click());
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x89)).toBe(true);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(false);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x90)).toBe(true);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x91)).toBe(true);
+
+  await act(async () => button("Download All Tracks MIDI (Circuit Tracks)").click());
+  expect(exportMidi).toHaveBeenCalledOnce();
+  expect(exportMidi.mock.calls[0][0].midi1.notes).toEqual([generatedMelody]);
+  expect(exportMidi.mock.calls[0][1].length).toBeGreaterThan(0);
 });
 
 it("keeps the relocated generator synchronized with piano-roll focus", async () => {

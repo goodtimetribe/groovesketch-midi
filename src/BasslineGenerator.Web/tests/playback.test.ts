@@ -74,6 +74,95 @@ afterEach(() => {
 });
 
 describe("preview transport", () => {
+  it("mutes queued melody and all drum lanes on a shared MIDI output across a loop boundary", async () => {
+    const output = new MidiOutputMock();
+    output.name = "Generic MIDI";
+    const device = output as unknown as MIDIOutput;
+    const transport = new PlaybackTransport(() => {});
+    const drums = [36, 38, 42, 54].map((midiNote) =>
+      ({ note: "drum", midiNote, startBeat: 0, durationBeats: 0.25, velocity: 100 }));
+    const melody = { note: "E5", midiNote: 76, startBeat: 0, durationBeats: 2, velocity: 90 };
+    const tracks = { synth1: pkg.notes!, synth2: [], midi1: [melody], midi2: [] };
+    transport.load(pkg, [], drums, tracks);
+    transport.setTrackRoutings({
+      synth1: { output: device, channel: 0 }, synth2: { output: device, channel: 1 },
+      midi1: { output: device, channel: 2 }, drum1: { output: device, channel: 9 },
+    });
+    transport.setLoop(true);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x92 && call[1] > 0)).toBe(true);
+
+    output.send.mockClear();
+    transport.setTrackEnabled("midi1", false);
+    expect(transport.beat).toBeCloseTo(7.8);
+    expect(transport.state).toBe("playing");
+    expect(output.clear).toHaveBeenCalledOnce();
+    expect(output.send).toHaveBeenCalledWith([0x82, 76, 0]);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x92)).toBe(false);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x90)).toBe(true);
+
+    output.send.mockClear();
+    transport.setTrackEnabled("drums", false);
+    expect(output.clear).toHaveBeenCalledTimes(2);
+    for (const pitch of [36, 38, 42, 54]) expect(output.send).toHaveBeenCalledWith([0x89, pitch, 0]);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(false);
+
+    output.send.mockClear();
+    transport.setTrackEnabled("midi1", true);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x92)).toBe(true);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(false);
+    context.currentTime = 4.25;
+    transport.setTrackEnabled("drums", true);
+    expect(transport.beat).toBeCloseTo(0.5);
+    transport.dispose();
+  });
+
+  it("silences browser voices immediately and resumes sustained notes on unmute", async () => {
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [{ note: "C4", midiNote: 60, startBeat: 0, durationBeats: 4, velocity: 90 }]);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 0.25;
+    transport.setTrackEnabled("synth2", false);
+    expect(context.gains.slice(1, 3).every((gain) => gain.disconnect.mock.calls.length > 0)).toBe(true);
+    expect(context.oscillators).toHaveLength(3);
+    expect(context.oscillators.at(-1)!.frequency.value).toBeCloseTo(55);
+    expect(transport.beat).toBeCloseTo(0.5);
+    transport.setTrackEnabled("synth2", true);
+    expect(context.oscillators.at(-1)!.frequency.value).toBeCloseTo(261.6256);
+    expect(context.oscillators.at(-1)!.start).toHaveBeenCalledWith(0.25);
+    transport.dispose();
+  });
+
+  it("retains muted tracks through pause, content reload, and drum pattern changes", async () => {
+    const output = new MidiOutputMock();
+    output.name = "Generic MIDI";
+    const device = output as unknown as MIDIOutput;
+    const transport = new PlaybackTransport(() => {});
+    const drums = [{ note: "C2", midiNote: 36, startBeat: 0, durationBeats: 1, velocity: 100 }];
+    transport.setTrackRoutings({
+      synth1: { output: device, channel: 0 }, synth2: { output: device, channel: 1 },
+      drum1: { output: device, channel: 9 },
+    });
+    transport.setTrackEnabled("synth1", false);
+    transport.setTrackEnabled("drums", false);
+    transport.load(pkg, [], drums);
+    await transport.play();
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x90 || call[0][0] === 0x99)).toBe(false);
+    transport.pause();
+    transport.setDrumNotes(drums);
+    await transport.play();
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x90 || call[0][0] === 0x99)).toBe(false);
+    transport.setTrackEnabled("synth1", true);
+    transport.setTrackEnabled("drums", true);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x90)).toBe(true);
+    expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(true);
+    transport.dispose();
+  });
+
   it("loops drums on channel 10 with the other tracks and silences them on pause", async () => {
     const output = new MidiOutputMock();
     const device = output as unknown as MIDIOutput;

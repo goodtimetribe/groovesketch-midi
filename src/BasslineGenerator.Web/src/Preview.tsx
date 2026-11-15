@@ -84,7 +84,7 @@ const Preview = forwardRef<PreviewHandle, {
   const [profileName, setProfileName] = useState(initialProfile?.name ?? "");
   const [profileError, setProfileError] = useState(initial.error);
   const [state, setState] = useState<PlaybackState>("stopped");
-  const [looping, setLooping] = useState(false);
+  const [looping, setLooping] = useState(true);
   const [chords, setChords] = useState<{ pkg: GenerationPackage; notes: NoteData[]; error: string } | null>(
     () => sketch?.pkg === pkg ? { pkg, notes: sketch.chordNotes, error: "" } : null);
   const [retry, setRetry] = useState(0);
@@ -102,7 +102,11 @@ const Preview = forwardRef<PreviewHandle, {
       return Number.isFinite(value) && value >= 0 && value <= 100 ? value : 75;
     } catch { return 75; }
   });
-  const [transport] = useState(() => new PlaybackTransport(setState, setError));
+  const [transport] = useState(() => {
+    const instance = new PlaybackTransport(setState, setError);
+    instance.setLoop(true);
+    return instance;
+  });
   const output = resolveOutput(routing.destination, outputs);
   const unavailable = routing.destination.kind === "midi" && !output;
   const chordOutput = resolveOutput(chordRouting.destination, outputs);

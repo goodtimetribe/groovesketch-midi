@@ -76,10 +76,12 @@ launch profile. The workspace generates and replays packages, displays a
 read-only piano roll, previews the generated notes, downloads MIDI, and supports
 local JSON package files and share codes. The preview uses a lightweight Web
 Audio synthesizer by default; it may sound different from a DAW. Play,
-pause, stop, restart, and loop control the preview, and synth volume is remembered for
-the current browser session. Preview plays bass, chords, and an optional built-in
-drum pattern on a shared transport. Select a pattern to add the drum track; it
-repeats from the start of each section and is truncated at section boundaries.
+pause, stop, restart, and loop control the preview; looping is enabled by default.
+Piano-roll track checkboxes control both visibility and playback, without changing
+exports. Synth volume is remembered for the current browser session. Preview plays
+bass, chords, and an optional built-in drum pattern on a shared transport.
+Select a pattern to add the drum track; it repeats from the start of each section
+and is truncated at section boundaries.
 The creative toolbar holds sketch and focused-track generation actions.
 Character controls can be expanded independently of the other settings.
 On a new visit, the app selects a random key, scale, style, progression, and
