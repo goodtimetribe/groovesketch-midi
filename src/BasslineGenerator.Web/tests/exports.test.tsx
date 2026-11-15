@@ -38,10 +38,17 @@ async function generate() {
 }
 
 async function setBassChannel(channel: number) {
-  const input = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("MIDI channel (1–16)"))!
+  const input = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Bass export MIDI channel (1–16)"))!
     .querySelector("input")!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, String(channel));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+async function setRange(input: HTMLInputElement, value: number) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, String(value));
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
@@ -50,7 +57,7 @@ beforeEach(async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   fetchMock = vi.fn((path: string) => {
     if (path === "/api/presets") return Promise.resolve(json(["Acid"]));
-    if (path === "/api/progressions") return Promise.resolve(json([]));
+    if (path === "/api/progressions") return Promise.resolve(json([{ id: "x", name: "X", description: "", chordSequence: ["i"], mood: "", suggestedUse: "" }]));
     if (path === "/api/generate/package") return Promise.resolve(json(pkg));
     throw new Error(`Unexpected request: ${path}`);
   });
@@ -69,6 +76,136 @@ afterEach(async () => {
 });
 
 describe("MIDI export actions", () => {
+  it("shows character overrides and defaults in the collapsed settings and generated request", async () => {
+    const character = container.querySelector<HTMLDetailsElement>(".character-module")!;
+    expect(character.open).toBe(false);
+    await act(async () => character.querySelector("summary")!.click());
+    const movement = container.querySelector<HTMLInputElement>('#character-movement')!;
+    const groove = container.querySelector<HTMLInputElement>('#character-groove')!;
+    expect(movement.getAttribute("aria-valuetext")).toBe("Style default");
+    await setRange(movement, 73);
+    await setRange(groove, 42);
+    expect(movement.getAttribute("aria-valuetext")).toBe("73");
+    const humanization = [...container.querySelectorAll("summary")].find((item) => item.textContent?.startsWith("MIDI & humanization"))!;
+    expect(humanization.textContent).toContain("Velocity 100");
+    expect(humanization.closest("details")?.open).toBe(false);
+    const panel = container.querySelector<HTMLDetailsElement>(".settings-panel")!;
+    await act(async () => panel.querySelector("summary")!.click());
+    const snapshot = panel.querySelector(".settings-snapshot")!;
+    expect(character.querySelector("summary")?.textContent).toContain("movement: 73");
+    expect(character.querySelector("summary")?.textContent).toContain("groove: 42");
+    expect(character.querySelector("summary")?.textContent).toContain("mutation: style default");
+    expect(snapshot.textContent).toContain("Unapplied settings");
+    await act(async () => panel.querySelector("summary")!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Use style default for movement"]')!.click());
+    expect(movement.getAttribute("aria-valuetext")).toBe("Style default");
+    await generate();
+    const request = JSON.parse(fetchMock.mock.calls.find(([path]) => path === "/api/generate/package")![1].body);
+    expect(request.movement).toBeNull();
+    expect(request.groove).toBe(42);
+  });
+
+  it("preserves per-section behavior edits alongside global character overrides", async () => {
+    await generate();
+    const section = [...container.querySelectorAll("details")].find((item) => item.querySelector("summary")?.textContent?.startsWith("Section behavior"))!;
+    await setRange(section.querySelector<HTMLInputElement>('input[type="range"]')!, 31);
+    await setRange(container.querySelector<HTMLInputElement>('#character-groove')!, 77);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fetchMock.mockResolvedValueOnce(json(pkg));
+    await generate();
+    const request = JSON.parse(fetchMock.mock.calls.find(([path]) => path === "/api/package/regenerate")![1].body);
+    expect(request.effectiveConfiguration.groove).toBe(77);
+    expect(request.effectiveConfiguration.sections[0].behavior).toMatchObject({ movement: 31, groove: 77 });
+  });
+
+  it("collapses settings without losing edits", async () => {
+    const panel = container.querySelector<HTMLDetailsElement>(".settings-panel")!;
+    const summary = panel.querySelector("summary")!;
+    const tempo = [...panel.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Tempo"))!.querySelector("input")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(tempo, "145");
+      tempo.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(panel.open).toBe(true);
+    await act(async () => summary.click());
+    expect(panel.open).toBe(false);
+    await act(async () => summary.click());
+    expect(panel.open).toBe(true);
+    expect(tempo.value).toBe("145");
+  });
+
+  it("collapses Character independently of Settings and retains its values", async () => {
+    const settings = container.querySelector<HTMLDetailsElement>(".settings-panel")!;
+    const character = container.querySelector<HTMLDetailsElement>(".character-module")!;
+    expect(settings.contains(character)).toBe(false);
+    expect(character.open).toBe(false);
+    await act(async () => character.querySelector("summary")!.click());
+    await setRange(character.querySelector<HTMLInputElement>("#character-movement")!, 63);
+    await act(async () => settings.querySelector("summary")!.click());
+    expect(settings.open).toBe(false);
+    expect(character.open).toBe(true);
+    await act(async () => character.querySelector("summary")!.click());
+    expect(character.querySelector("summary")?.textContent).toContain("movement: 63");
+    await act(async () => settings.querySelector("summary")!.click());
+    expect(character.open).toBe(false);
+    await act(async () => character.querySelector("summary")!.click());
+    expect(character.querySelector<HTMLInputElement>("#character-movement")!.value).toBe("63");
+  });
+
+  it("keeps tempo and arrangement bar units in their labels", async () => {
+    const labels = () => [...container.querySelectorAll(".sound-settings label")];
+    expect(labels().find((label) => label.textContent?.startsWith("Tempo"))?.firstChild?.textContent).toBe("Tempo (BPM)");
+    const mode = labels().find((label) => label.textContent?.startsWith("Mode"))!.querySelector("select")!;
+    await act(async () => { mode.value = "arrangement"; mode.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(labels().find((label) => label.textContent?.startsWith("Bars"))?.firstChild?.textContent).toBe("Bars (per section)");
+  });
+
+  it("groups document actions and shows the generated summary in the playback sidebar", async () => {
+    const nav = container.querySelector("nav")!;
+    expect([...nav.querySelectorAll("button")].map((item) => item.textContent)).toEqual([
+      "Save package", "Share", "Download Bass + Chords MIDI", "▾", "Download Bass MIDI", "Download All Tracks MIDI (Circuit Tracks)", "Download Circuit Tracks Drum MIDI", "Load package", "Load code",
+    ]);
+    expect(button("Save package").disabled).toBe(true);
+    await generate();
+    expect(button("Save package").disabled).toBe(false);
+    expect(button("Share").disabled).toBe(false);
+    const settings = container.querySelector(".sound-settings")!;
+    const summary = container.querySelector("aside .result-summary")!;
+    expect(settings.querySelector(".result-summary")).toBeNull();
+    expect(summary.closest("details")).toBeNull();
+    expect(summary.closest('[aria-live="polite"]')).not.toBeNull();
+    expect(container.querySelector(".announcements")?.textContent).not.toContain("Bassline generated.");
+    expect(summary.textContent).toContain("Generated bassline:");
+    expect(settings.textContent).toContain("SHAPE YOUR SOUND");
+    expect(summary.textContent).toContain("X (i) · Seed 7 · Engine 1.0.0");
+    const before = summary.textContent;
+    await setBassChannel(2);
+    expect(summary.textContent).toBe(before);
+    expect(container.textContent).toContain("Settings changed.");
+    expect(button("Regenerate Bass Package").form).toBe(container.querySelector("form"));
+    expect(container.querySelector(".track-generator")?.closest("form")).toBeNull();
+    const creative = container.querySelector('[aria-label="Creative actions"]')!;
+    expect(creative.contains(button("Generate Sketch"))).toBe(true);
+    expect(creative.contains(button("Regenerate Bass Package"))).toBe(true);
+    expect(creative.contains(container.querySelector(".track-generator"))).toBe(true);
+    expect(settings.contains(creative)).toBe(false);
+  });
+
+  it("opens and dismisses the extra download options", async () => {
+    const toggle = container.querySelector<HTMLButtonElement>('[aria-label="More MIDI downloads"]')!;
+    const options = container.querySelector<HTMLElement>("#download-options")!;
+    expect(options.hidden).toBe(true);
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(options.hidden).toBe(false);
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(options.hidden).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+    await act(async () => toggle.click());
+    await act(async () => document.body.dispatchEvent(new Event("pointerdown", { bubbles: true })));
+    expect(options.hidden).toBe(true);
+  });
+
   it("disables both exports until a package is generated", async () => {
     expect(button("Download Bass MIDI").disabled).toBe(true);
     expect(button("Download Bass + Chords MIDI").disabled).toBe(true);
@@ -129,6 +266,8 @@ describe("MIDI export actions", () => {
 
   it("keeps the bass-only download separate", async () => {
     await generate();
+    const toggle = container.querySelector<HTMLButtonElement>('[aria-label="More MIDI downloads"]')!;
+    await act(async () => toggle.click());
     fetchMock.mockResolvedValueOnce(new Response("bass", { headers: { "content-type": "audio/midi" } }));
     vi.stubGlobal("URL", Object.assign(class extends URL {}, { createObjectURL: vi.fn().mockReturnValue("blob:bass") }));
     vi.spyOn(window, "setTimeout").mockImplementation(() => 1);
@@ -136,6 +275,7 @@ describe("MIDI export actions", () => {
       expect(this.download).toBe("bassline.mid");
     });
     await act(async () => button("Download Bass MIDI").click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(fetchMock).toHaveBeenLastCalledWith("/api/package/midi", expect.objectContaining({ body: JSON.stringify(pkg) }));
     expect(click).toHaveBeenCalledOnce();
   });

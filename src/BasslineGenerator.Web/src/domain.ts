@@ -1,4 +1,4 @@
-import { dimensions, type GenerateRequest, type GenerationPackage } from "./types";
+import { dimensions, type GenerateRequest, type GenerationPackage, type Progression } from "./types";
 
 // Kept in sync with GenerateRequest's OpenAPI x-suggested-values.
 export const roots = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
@@ -10,6 +10,31 @@ export const initialRequest: GenerateRequest = {
   velocityVariation: 0, timingVariation: 0, swing: 0, accentDownbeats: false,
   movement: null, groove: null, mutation: null, tension: null, repetition: null,
 };
+
+const tempoRanges: Record<string, readonly [number, number]> = {
+  acid: [130, 150], techno: [125, 145], trance: [135, 150], dreamy: [75, 105],
+  synthwave: [90, 120], pop: [100, 125], rave: [140, 165],
+};
+
+export function randomInitialRequest(seed: number, presets: string[], progressions: Progression[]): GenerateRequest {
+  if (!presets.length || !progressions.length) throw new Error("Styles and progressions must be available to create a starting configuration.");
+  let state = seed >>> 0;
+  const next = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+  const pick = <T>(items: readonly T[]) => items[Math.floor(next() * items.length)];
+  const rootNote = pick(roots);
+  const scaleType = pick(scales);
+  const style = pick(presets);
+  const progression = pick(progressions).id;
+  const [min, max] = tempoRanges[style.toLowerCase()] ?? [110, 130];
+  const bpm = min + Math.floor(next() * (max - min + 1));
+  return { ...initialRequest, rootNote, scaleType, style, progression, seed, bpm };
+}
 
 export function requestFromPackage(pkg: GenerationPackage): GenerateRequest {
   const c = pkg.effectiveConfiguration;

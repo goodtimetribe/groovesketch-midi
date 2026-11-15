@@ -110,6 +110,45 @@ it("shows the selected pattern's description and Drum 4 sample guidance", async 
   expect(container.textContent).not.toContain("sparse cowbell accents on Drum 4");
 });
 
+it("shows volume when at least one track uses Browser Synth", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.querySelector('[aria-label="Master volume"]')).not.toBeNull();
+  await act(async () => button("Refresh Devices").click());
+  for (const track of ["Bass", "Chords", "Midi1", "Midi2", "Drums"]) await select(`${track} Output`, "circuit");
+  expect(container.querySelector('[aria-label="Master volume"]')).toBeNull();
+  await select("Midi2 Output", "");
+  expect(container.querySelector('[aria-label="Master volume"]')).not.toBeNull();
+});
+
+it("shows and switches the selected profile without expanding hardware routing", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  const routing = container.querySelector<HTMLDetailsElement>(".hardware-routing")!;
+  const profile = [...container.querySelectorAll("label")].find((item) => item.textContent?.startsWith("Profile"))!.querySelector("select")!;
+  expect(routing.open).toBe(false);
+  expect(profile.closest("details")).toBeNull();
+  expect(profile.selectedOptions[0].textContent).toBe("Browser Preview");
+  await select("Profile", "circuit-1");
+  expect(profile.selectedOptions[0].textContent).toBe("Circuit Tracks Synth 1");
+  expect(routing.open).toBe(false);
+  expect(container.querySelector<HTMLInputElement>('.routing-profiles input')?.value).toBe("Circuit Tracks Synth 1");
+});
+
+it("places working playback controls in the supplied sidebar", async () => {
+  const sidebar = document.createElement("aside");
+  document.body.appendChild(sidebar);
+  try {
+    await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} />));
+    const refresh = [...sidebar.querySelectorAll("button")].find((item) => item.textContent === "Refresh Devices")!;
+    expect(sidebar.querySelector('[aria-label="Playback controls"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Playback controls"]')).toBeNull();
+    await act(async () => refresh.click());
+    expect(sidebar.textContent).toContain("Circuit Tracks");
+    expect(container.querySelector('[data-testid="chord-count"]')).not.toBeNull();
+  } finally {
+    sidebar.remove();
+  }
+});
+
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
@@ -122,6 +161,9 @@ afterEach(async () => {
 
 it("configures and saves independent device channels, blocking collisions", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  const profiles = container.querySelector('[aria-label="Routing profiles"]')!;
+  const bass = container.querySelector('[aria-label="Bass output"]')!;
+  expect(profiles.compareDocumentPosition(bass) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(container.querySelector('[data-testid="chord-count"]')?.textContent).toBe("1");
   await act(async () => button("Refresh Devices").click());
   await select("Bass Output", "circuit");

@@ -128,6 +128,9 @@ describe("piano roll", () => {
   });
 
   it("preserves zoom, paging, note inspection, and selection", async () => {
+    const visibility = container.querySelector(".roll-visibility")!;
+    expect(visibility.querySelector("legend")?.textContent).toBe("Tracks");
+    expect(visibility.querySelector(":scope > label")?.textContent).toContain("Bars shown");
     await act(async () => button("C2 (36)").click());
     expect(container.textContent).toContain("Selected: C2, beat 0, length 1, velocity 127.");
     await changeSelect("Bars shown", "4");
@@ -138,6 +141,29 @@ describe("piano roll", () => {
     expect(container.textContent).toContain("Selected: C2");
     await act(async () => button("Previous").click());
     expect(container.textContent).toContain("Visible notes (2)");
+  });
+
+  it("renders a separate note-view card with sections before track controls", () => {
+    const roll = container.querySelector('section[aria-label="Note View"]')!;
+    expect(roll.classList.contains("card")).toBe(true);
+    const sections = roll.querySelector('[aria-label="Arrangement sections"]')!;
+    const focus = [...roll.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Focus"))!;
+    expect(sections.compareDocumentPosition(focus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(roll.querySelector("canvas")).not.toBeNull();
+  });
+
+  it("collapses arrangement controls while keeping tracks and the piano roll visible", async () => {
+    const options = container.querySelector<HTMLDetailsElement>(".roll-options")!;
+    const summary = options.querySelector("summary")!;
+    await changeSelect("Focus", "chords");
+    await act(async () => summary.click());
+    expect(options.open).toBe(false);
+    expect(options.querySelector('[aria-label="Arrangement sections"]')).not.toBeNull();
+    expect(container.querySelector(".roll-visibility")?.closest("details")).toBeNull();
+    expect(container.querySelector("canvas")?.closest("details")).toBeNull();
+    await act(async () => summary.click());
+    expect(options.open).toBe(true);
+    expect([...options.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Focus"))?.querySelector("select")?.value).toBe("chords");
   });
 
   it("shows drum notes as a focusable track with Circuit Tracks lane colors", async () => {
