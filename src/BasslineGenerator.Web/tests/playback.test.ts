@@ -84,13 +84,27 @@ describe("preview transport", () => {
     });
     transport.setLoop(true);
     await transport.play();
-    expect(output.send).toHaveBeenCalledWith([0x99, 36, 110], 0);
+    expect(output.send).toHaveBeenCalledWith([0x99, 60, 110], 0);
     AudioContextMock.instance.currentTime = 3.9;
     vi.advanceTimersByTime(25);
     expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99)).toHaveLength(2);
     transport.pause();
     expect(output.clear).toHaveBeenCalledOnce();
-    expect(output.send).toHaveBeenCalledWith([0x89, 36, 0]);
+    expect(output.send).toHaveBeenCalledWith([0x89, 60, 0]);
+    transport.dispose();
+  });
+
+  it("keeps source drum notes unchanged for non-Circuit Tracks MIDI outputs", async () => {
+    const output = new MidiOutputMock();
+    output.name = "Generic MIDI";
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [], [{ note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 }]);
+    transport.setTrackRoutings({
+      bass: { output: null, channel: 0 }, chords: { output: null, channel: 1 },
+      drums: { output: output as unknown as MIDIOutput, channel: 9 },
+    });
+    await transport.play();
+    expect(output.send).toHaveBeenCalledWith([0x99, 36, 110], 0);
     transport.dispose();
   });
 

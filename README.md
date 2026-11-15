@@ -81,8 +81,13 @@ the current browser session. Preview plays bass, chords, and an optional built-i
 drum pattern on a shared transport. Select a pattern to add the drum track; it
 repeats from the start of each section and is truncated at section boundaries.
 Drums use the browser's pitched preview synth by default, not a drum kit. Route
-them to a MIDI drum instrument for percussion. Patterns are preview-only and are
-not included in saved packages, share codes, or MIDI exports.
+them to a MIDI drum instrument for percussion. Drum patterns are not included
+in saved packages, share codes, or the Bass and Bass + Chords exports.
+**Download Circuit Tracks Drum MIDI** exports the selected pattern as a
+separate drum-only MIDI file.
+On playback to a MIDI output whose name contains “Circuit Tracks,” the supported
+GM notes map to Circuit Tracks Drum 1–3: kick 36 to 60, snare 38 to 62, and
+closed hat 42 to 64. Other outputs and the browser preview keep the source notes.
 Chord notes must load before playback; retry if loading fails. Choose **Download
 Bass MIDI** for bass alone or **Download Bass + Chords MIDI** for a Type 1 MIDI
 file with separate bass and sustained chord tracks.
@@ -104,7 +109,9 @@ Devices**, grant browser MIDI permission, and choose it under **Bass Output** or
 **Chords Output** or **Drums Output**.
 Web MIDI requires a compatible browser and a secure context (HTTPS or
 localhost). Select each track's **MIDI Channel** (1-16) to match the receiving
-device or DAW; drums default to channel 10 (MIDI notes are sent unchanged).
+device or DAW; drums default to channel 10. Circuit Tracks drum playback and
+the Circuit Tracks drum export use its Drum 1–4 target notes; other MIDI
+destinations receive the source notes unchanged.
 Routing does not change generation or exported MIDI. Tracks using
 the same MIDI output must use different channels. Routing changes reschedule all
 tracks at the same playback position. The synth volume control does not affect MIDI velocity.

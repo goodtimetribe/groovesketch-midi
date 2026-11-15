@@ -81,13 +81,13 @@ it("plays a selected drum pattern on channel 10, updates it during playback, and
   await select("Drum pattern", "four-on-the-floor");
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
   await act(async () => button("Play").click());
-  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x99, 36, 110]);
+  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x99, 60, 110]);
   await select("Drum pattern", "half-time");
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("2");
   expect(output.clear).toHaveBeenCalled();
-  expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99 && call[0][1] === 36)).toHaveLength(2);
+  expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99 && call[0][1] === 60)).toHaveLength(2);
   await act(async () => button("Pause").click());
-  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x89, 36, 0]);
+  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x89, 60, 0]);
   await select("Drums MIDI Channel", "0");
   expect(button("Play").disabled).toBe(true);
   expect(container.textContent).toContain("must use different channels");
