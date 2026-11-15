@@ -1,12 +1,12 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import PianoRoll from "./PianoRoll";
+import PianoRoll, { type FocusTrack, type GeneratorType } from "./PianoRoll";
 import { api, download } from "./api";
 import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
 import { arrangeDrums, drumPatterns } from "./drumPatterns";
 import { hardwareTracks } from "./hardwareTracks";
 import { MidiDevices } from "./midi";
 import { PlaybackTransport, type PlaybackState } from "./playback";
-import { readChordNotes } from "./trackView";
+import { readChordNotes, type MelodicContent } from "./trackView";
 import {
   defaultRoutingProfiles, deleteProfile, loadRoutingProfiles, putProfile, resolveOutput, saveRoutingProfiles,
   routingProfilesKey, type Routing, type RoutingProfiles,
@@ -17,6 +17,15 @@ export interface PreviewHandle { stop(): void }
 
 const volumeKey = "bassline-preview-volume";
 const channelKey = "bassline-preview-midi-channel";
+
+function initialContent(pkg: GenerationPackage): MelodicContent {
+  return {
+    synth1: { role: "bass", notes: pkg.notes ?? [] },
+    synth2: { role: "chords", notes: [] },
+    midi1: { role: null, notes: [] },
+    midi2: { role: null, notes: [] },
+  };
+}
 
 function initialProfiles() {
   try {
@@ -42,12 +51,19 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
   const [routing, setRouting] = useState<Routing>(() => initialProfile?.routing ?? defaultRoutingProfiles().profiles[0].routing);
   const [chordRouting, setChordRouting] = useState<Routing>(() => initialProfile?.chordRouting ?? defaultRoutingProfiles().profiles[0].chordRouting);
   const [drumRouting, setDrumRouting] = useState<Routing>(() => initialProfile?.drumRouting ?? defaultRoutingProfiles().profiles[0].drumRouting);
+  const [midi1Routing, setMidi1Routing] = useState<Routing>(() => ({ destination: { kind: "browser" }, channel: hardwareTracks.midi1.defaultChannel, instrument: "bass" }));
+  const [midi2Routing, setMidi2Routing] = useState<Routing>(() => ({ destination: { kind: "browser" }, channel: hardwareTracks.midi2.defaultChannel, instrument: "bass" }));
   const [patternId, setPatternId] = useState("");
+  const [appliedPatternId, setAppliedPatternId] = useState("");
+  const [content, setContent] = useState(() => ({ pkg, tracks: initialContent(pkg) }));
+  const tracks = useMemo(() => content.pkg === pkg ? content.tracks : initialContent(pkg), [content, pkg]);
+  const [generating, setGenerating] = useState(false);
+  const generationRevision = useRef(0);
   const selectedPattern = drumPatterns.find((item) => item.id === patternId);
   const drumNotes = useMemo(() => {
-    const pattern = drumPatterns.find((item) => item.id === patternId);
+    const pattern = drumPatterns.find((item) => item.id === appliedPatternId);
     return pattern ? arrangeDrums(pattern, pkg.effectiveConfiguration.sections) : [];
-  }, [patternId, pkg]);
+  }, [appliedPatternId, pkg]);
   const drumNotesRef = useRef(drumNotes);
   drumNotesRef.current = drumNotes;
   const [profileName, setProfileName] = useState(initialProfile?.name ?? "");
@@ -77,21 +93,32 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
   const chordUnavailable = chordRouting.destination.kind === "midi" && !chordOutput;
   const drumOutput = resolveOutput(drumRouting.destination, outputs);
   const drumUnavailable = drumRouting.destination.kind === "midi" && !drumOutput;
+  const midi1Output = resolveOutput(midi1Routing.destination, outputs);
+  const midi1Unavailable = midi1Routing.destination.kind === "midi" && !midi1Output;
+  const midi2Output = resolveOutput(midi2Routing.destination, outputs);
+  const midi2Unavailable = midi2Routing.destination.kind === "midi" && !midi2Output;
   const routes = [{ output, channel: routing.channel }, { output: chordOutput, channel: chordRouting.channel },
-    { output: drumOutput, channel: drumRouting.channel }];
+    { output: drumOutput, channel: drumRouting.channel }, { output: midi1Output, channel: midi1Routing.channel },
+    { output: midi2Output, channel: midi2Routing.channel }];
   const collision = routes.some((route, index) => routes.slice(index + 1).some((other) =>
     route.output && route.output === other.output && route.channel === other.channel));
   const readyChords = chords?.pkg === pkg ? chords : null;
 
   useImperativeHandle(ref, () => ({ stop: () => transport.stop() }), [transport]);
   useEffect(() => {
+    setContent({ pkg, tracks: initialContent(pkg) });
+    setGenerating(false);
+    return () => { generationRevision.current++; };
+  }, [pkg]);
+  useEffect(() => {
     let cancelled = false;
-    transport.load(pkg, [], drumNotesRef.current);
     setChords(null);
     void api.combinedMidi(pkg).then((blob) => blob.arrayBuffer()).then(readChordNotes).then(
       (notes) => {
         if (cancelled) return;
-        transport.load(pkg, notes, drumNotesRef.current);
+        setContent((current) => current.pkg === pkg
+          ? { ...current, tracks: { ...current.tracks, synth2: { role: "chords", notes } } }
+          : current);
         setChords({ pkg, notes, error: "" });
       },
       (error: unknown) => {
@@ -100,6 +127,12 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     );
     return () => { cancelled = true; };
   }, [transport, pkg, retry]);
+  useEffect(() => {
+    transport.load(pkg, [], drumNotesRef.current, {
+      synth1: tracks.synth1.notes, synth2: tracks.synth2.notes,
+      midi1: tracks.midi1.notes, midi2: tracks.midi2.notes,
+    });
+  }, [transport, pkg, tracks]);
   useEffect(() => { transport.setDrumNotes(drumNotes); }, [transport, drumNotes]);
   useEffect(() => () => transport.dispose(), [transport]);
   useEffect(() => { transport.setVolume(volume); }, [transport, volume]);
@@ -131,19 +164,21 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
   }, []);
 
   useEffect(() => {
-    if (routing.destination.kind === "midi" || chordRouting.destination.kind === "midi" || drumRouting.destination.kind === "midi") void refreshDevices();
-  }, [routing.destination, chordRouting.destination, drumRouting.destination, refreshDevices]);
+    if ([routing, chordRouting, drumRouting, midi1Routing, midi2Routing].some((route) => route.destination.kind === "midi")) void refreshDevices();
+  }, [routing.destination, chordRouting.destination, drumRouting.destination, midi1Routing.destination, midi2Routing.destination, refreshDevices]);
   useEffect(() => {
-    if (unavailable || chordUnavailable || drumUnavailable || collision) {
+    if (unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision) {
       transport.pause();
       return;
     }
     transport.setTrackRoutings({
       synth1: { output, channel: routing.channel },
       synth2: { output: chordOutput, channel: chordRouting.channel },
+      midi1: { output: midi1Output, channel: midi1Routing.channel },
+      midi2: { output: midi2Output, channel: midi2Routing.channel },
       drum1: { output: drumOutput, channel: drumRouting.channel },
     });
-  }, [transport, output, chordOutput, drumOutput, routing.channel, chordRouting.channel, drumRouting.channel, unavailable, chordUnavailable, drumUnavailable, collision]);
+  }, [transport, output, chordOutput, drumOutput, midi1Output, midi2Output, routing.channel, chordRouting.channel, drumRouting.channel, midi1Routing.channel, midi2Routing.channel, unavailable, chordUnavailable, drumUnavailable, midi1Unavailable, midi2Unavailable, collision]);
 
   const persist = (next: RoutingProfiles) => {
     setProfiles(next);
@@ -209,21 +244,52 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       setError(e instanceof Error ? e.message : "Circuit Tracks drum MIDI could not be created.");
     }
   };
+  const generateTrack = (track: FocusTrack, generator: GeneratorType) => {
+    if (generator === "drums") {
+      if (track === "drums" && selectedPattern) setAppliedPatternId(selectedPattern.id);
+      return;
+    }
+    if (track === "drums" || generating) return;
+    const revision = ++generationRevision.current;
+    setGenerating(true);
+    setError("");
+    const generate = async () => {
+      if (generator === "chords") return readChordNotes(await (await api.combinedMidi(pkg)).arrayBuffer());
+      const seed = crypto.getRandomValues(new Int32Array(1))[0];
+      const generated = await api.replay({
+        ...pkg, seed, notes: null, statistics: null,
+        effectiveConfiguration: { ...pkg.effectiveConfiguration, seed, requestedProgression: pkg.effectiveConfiguration.progressionId },
+      });
+      if (!generated.notes) throw new Error("The generated bass notes were missing.");
+      return generated.notes;
+    };
+    void generate().then((notes) => {
+      if (generationRevision.current !== revision) return;
+      setContent((current) => current.pkg === pkg
+        ? { ...current, tracks: { ...current.tracks, [track]: { role: generator, notes } } }
+        : current);
+    }).catch((e: unknown) => {
+      if (generationRevision.current === revision)
+        setError(e instanceof Error ? e.message : "Track generation failed.");
+    }).finally(() => {
+      if (generationRevision.current === revision) setGenerating(false);
+    });
+  };
   const start = (restart: boolean) => {
-    if (unavailable || chordUnavailable || drumUnavailable || collision || !readyChords || readyChords.error) {
+    if (unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision || !readyChords || readyChords.error) {
       setError("Playback is not ready. Check chord loading and track routing.");
       return;
     }
     setError("");
     void (restart ? transport.restart() : transport.play()).catch(() => {
-      setError(output || chordOutput || drumOutput
+      setError(output || chordOutput || drumOutput || midi1Output || midi2Output
         ? "MIDI playback could not start. Check the output device and browser permissions."
         : "Audio preview could not start. Check your browser audio settings and try again.");
     });
   };
 
   return <section className="card preview" aria-label="Bassline preview">
-    <p className="hint">Preview plays bass, chords, and an optional drum pattern; each track can use its own output and MIDI channel.</p>
+    <p className="hint">Focus a track, select a generator, then generate. Track changes are preview-only and are not included in package or bass and chords exports.</p>
     <label>Drum pattern
       <select value={patternId} onChange={(event) => setPatternId(event.target.value)}>
         <option value="">None</option>
@@ -231,8 +297,11 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       </select>
     </label>
     {selectedPattern && <p className="hint">{selectedPattern.description}</p>}
+    <p className="hint">Select Drums in Focus and choose Apply Pattern to update the drum content.</p>
+    <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === appliedPatternId)?.name ?? "None"}</p>
+    <button type="button" disabled={!appliedPatternId} onClick={() => setAppliedPatternId("")}>Clear Drums</button>
     <button type="button" disabled={!drumNotes.length} onClick={downloadCircuitTracksDrums}>Download Circuit Tracks Drum MIDI</button>
-    <p className="hint">Exports the selected drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>
+    <p className="hint">Exports the applied drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>
     <div className="routing-profiles" role="group" aria-label="Routing profiles">
       <label>Profile
         <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
@@ -253,10 +322,10 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     <div className="transport" role="group" aria-label="Playback controls">
       <div><p className="eyebrow">PREVIEW TRANSPORT</p><h2>Listen</h2></div>
       <div className="transport-buttons">
-        <button type="button" className="primary" onClick={() => start(false)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || collision || !readyChords || !!readyChords.error || state === "playing" || (!pkg.notes?.length && !drumNotes.length)}>Play</button>
+        <button type="button" className="primary" onClick={() => start(false)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision || !readyChords || !!readyChords.error || state === "playing" || (!Object.values(tracks).some((track) => track.notes.length) && !drumNotes.length)}>Play</button>
         <button type="button" onClick={() => transport.pause()} disabled={disabled || state !== "playing"}>Pause</button>
         <button type="button" onClick={() => transport.stop()}>Stop</button>
-        <button type="button" onClick={() => start(true)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || collision || !readyChords || !!readyChords.error || (!pkg.notes?.length && !drumNotes.length)}>Restart</button>
+        <button type="button" onClick={() => start(true)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision || !readyChords || !!readyChords.error || (!Object.values(tracks).some((track) => track.notes.length) && !drumNotes.length)}>Restart</button>
         <button type="button" aria-pressed={looping} onClick={() => {
           transport.setLoop(!looping);
           setLooping(!looping);
@@ -265,6 +334,8 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       {([
         { name: "Bass", routing, output, unavailable, setRouting },
         { name: "Chords", routing: chordRouting, output: chordOutput, unavailable: chordUnavailable, setRouting: setChordRouting },
+        { name: "Midi1", routing: midi1Routing, output: midi1Output, unavailable: midi1Unavailable, setRouting: setMidi1Routing },
+        { name: "Midi2", routing: midi2Routing, output: midi2Output, unavailable: midi2Unavailable, setRouting: setMidi2Routing },
         { name: "Drums", routing: drumRouting, output: drumOutput, unavailable: drumUnavailable, setRouting: setDrumRouting },
       ] as const).map((track) => <fieldset key={track.name}>
         <legend>{track.name} routing</legend>
@@ -287,13 +358,15 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       </button>
       <label className="volume">Volume <span>{volume}%</span>
         <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
-          disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
+          disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
       </label>
       <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
     </div>
     {unavailable && <p className="warning" role="status">Bass MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
     {chordUnavailable && <p className="warning" role="status">Chords MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
     {drumUnavailable && <p className="warning" role="status">Drums MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
+    {midi1Unavailable && <p className="warning" role="status">Midi1 MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
+    {midi2Unavailable && <p className="warning" role="status">Midi2 MIDI output unavailable or ambiguous. Connect the device and refresh, or select an output.</p>}
     {collision && <p className="warning" role="status">Tracks must use different channels on the same MIDI output.</p>}
     {!readyChords && <p className="hint" role="status">Loading chord notes…</p>}
     {readyChords?.error && <p className="error" role="alert">Chord notes could not be loaded: {readyChords.error} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry</button></p>}
@@ -302,7 +375,10 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     {discovered && outputs.length === 0 && <p className="hint" role="status">No MIDI outputs found. Connect a device or virtual port and refresh.</p>}
     {storageError && <p className="warning" role="alert">Volume could not be saved for this browser session.</p>}
     {initial.channelError && <p className="warning" role="alert">The previous MIDI channel could not be loaded from this browser session.</p>}
-    <PianoRoll pkg={pkg} transport={transport} playbackState={state} chordNotes={readyChords?.notes ?? []} drumNotes={drumNotes} />
+    <p className="hint">Bass and Chords routing control Synth1 and Synth2 respectively. Midi1 and Midi2 routing is temporary and is not saved in profiles.</p>
+    <PianoRoll pkg={pkg} transport={transport} playbackState={state} chordNotes={readyChords?.notes ?? []} drumNotes={drumNotes}
+      workflow={{ content: tracks, busy: generating, disabled: disabled || !readyChords || !!readyChords.error,
+        patternSelected: !!selectedPattern, generate: generateTrack }} />
   </section>;
 });
 

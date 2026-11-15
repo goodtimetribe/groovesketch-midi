@@ -1,12 +1,12 @@
 import type { GenerationPackage, NoteData } from "./types";
 import { MidiInstrument } from "./midi";
 import { mapCircuitTracksDrumNote } from "./circuitTracksDrums";
-import { drumTrackForNote, hardwareTrackIds, hardwareTracks, type DrumTrackId, type HardwareTrackId } from "./hardwareTracks";
+import { drumTrackForNote, hardwareTrackIds, hardwareTracks, type DrumTrackId, type HardwareTrackId, type MelodicTrackId } from "./hardwareTracks";
 
 export type PlaybackState = "stopped" | "playing" | "paused";
 type TrackId = HardwareTrackId;
 const drumTrackIds: DrumTrackId[] = ["drum1", "drum2", "drum3", "drum4"];
-const routingIds = ["synth1", "synth2", "drum1"] as const;
+const routingIds = ["synth1", "synth2", "midi1", "midi2", "drum1"] as const;
 export interface TrackRouting { output: MIDIOutput | null; channel: number }
 
 // The transport owns timing; the instrument only needs a note and an audio time.
@@ -92,8 +92,9 @@ export class PlaybackTransport {
     this.setTrackRoutings({ ...this.routes, synth1: { output, channel } });
   }
 
-  setTrackRoutings(routes: Record<"synth1" | "synth2", TrackRouting> & { drum1?: TrackRouting }) {
-    const next = { synth1: routes.synth1, synth2: routes.synth2, drum1: routes.drum1 ?? this.routes.drum1 };
+  setTrackRoutings(routes: Record<"synth1" | "synth2", TrackRouting> & Partial<Record<"midi1" | "midi2" | "drum1", TrackRouting>>) {
+    const next = { synth1: routes.synth1, synth2: routes.synth2, midi1: routes.midi1 ?? this.routes.midi1,
+      midi2: routes.midi2 ?? this.routes.midi2, drum1: routes.drum1 ?? this.routes.drum1 };
     for (const route of Object.values(next)) {
       if (!Number.isInteger(route.channel) || route.channel < 0 || route.channel > 15)
         throw new RangeError("MIDI channel must be between 0 and 15.");
@@ -109,6 +110,7 @@ export class PlaybackTransport {
     this.routes = {
       ...this.routes,
       synth1: { ...next.synth1 }, synth2: { ...next.synth2 },
+      midi1: { ...next.midi1 }, midi2: { ...next.midi2 },
       drum1: { ...next.drum1 }, drum2: { ...next.drum1 }, drum3: { ...next.drum1 }, drum4: { ...next.drum1 },
     };
     this.instruments = {};
@@ -125,7 +127,7 @@ export class PlaybackTransport {
 
   setMidiChannel(channel: number) {
     if (!Number.isInteger(channel) || channel < 0 || channel > 15) throw new RangeError("MIDI channel must be between 0 and 15.");
-    if ((["synth2", "drum1"] as const).some((id) => {
+    if ((["synth2", "midi1", "midi2", "drum1"] as const).some((id) => {
       const route = this.routes[id];
       return this.routes.synth1.output && this.routes.synth1.output === route.output && channel === route.channel;
     })) throw new Error("Tracks must use different channels on the same MIDI output.");
@@ -134,11 +136,16 @@ export class PlaybackTransport {
     if (instrument instanceof MidiInstrument) instrument.setChannel(channel);
   }
 
-  load(pkg: GenerationPackage, chordNotes: NoteData[] = [], drumNotes: NoteData[] = []) {
+  load(pkg: GenerationPackage, chordNotes: NoteData[] = [], drumNotes: NoteData[] = [],
+    trackNotes?: Record<MelodicTrackId, NoteData[]>) {
     this.stop();
     this.notes = [
-      ...(pkg.notes ?? []).map((note) => ({ track: "synth1" as const, note })),
-      ...chordNotes.map((note) => ({ track: "synth2" as const, note })),
+      ...(trackNotes
+        ? (["synth1", "synth2", "midi1", "midi2"] as const).flatMap((track) => trackNotes[track].map((note) => ({ track, note })))
+        : [
+          ...(pkg.notes ?? []).map((note) => ({ track: "synth1" as const, note })),
+          ...chordNotes.map((note) => ({ track: "synth2" as const, note })),
+        ]),
       ...drumNotes.map((note) => ({ track: drumTrackForNote(note.midiNote), note })),
     ].sort((a, b) => a.note.startBeat - b.note.startBeat);
     this.secondsPerBeat = 60 / pkg.effectiveConfiguration.bpm;

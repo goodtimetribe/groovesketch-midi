@@ -8,8 +8,9 @@ import Preview from "../src/Preview";
 import type { GenerationPackage } from "../src/types";
 
 vi.mock("../src/PianoRoll", () => ({
-  default: ({ chordNotes, drumNotes }: { chordNotes: unknown[]; drumNotes: unknown[] }) =>
-    <><div data-testid="chord-count">{chordNotes.length}</div><div data-testid="drum-count">{drumNotes.length}</div></>,
+  default: ({ chordNotes, drumNotes, workflow }: { chordNotes: unknown[]; drumNotes: unknown[]; workflow: { generate: (track: "drums", generator: "drums") => void } }) =>
+    <><div data-testid="chord-count">{chordNotes.length}</div><div data-testid="drum-count">{drumNotes.length}</div>
+      <button type="button" onClick={() => workflow.generate("drums", "drums")}>Apply Pattern</button></>,
 }));
 
 const pkg: GenerationPackage = {
@@ -79,10 +80,14 @@ it("plays a selected drum pattern on channel 10, updates it during playback, and
   await select("Chords Output", "circuit");
   await select("Drums Output", "circuit");
   await select("Drum pattern", "four-on-the-floor");
+  expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("0");
+  await act(async () => button("Apply Pattern").click());
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
   await act(async () => button("Play").click());
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x99, 60, 110]);
   await select("Drum pattern", "half-time");
+  expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
+  await act(async () => button("Apply Pattern").click());
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("2");
   expect(output.clear).toHaveBeenCalled();
   expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99 && call[0][1] === 60)).toHaveLength(2);

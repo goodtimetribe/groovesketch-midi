@@ -4,6 +4,8 @@ export const hardwareTrackIds = [
 
 export type HardwareTrackId = typeof hardwareTrackIds[number];
 export type DrumTrackId = Extract<HardwareTrackId, `drum${number}`>;
+export type MelodicTrackId = Exclude<HardwareTrackId, DrumTrackId>;
+export const melodicTrackIds: readonly MelodicTrackId[] = ["synth1", "synth2", "midi1", "midi2"];
 export type MusicalRole =
   | "bass" | "chords" | "lead" | "pad" | "keys" | "strings" | "brass" | "arp"
   | "kick" | "snare" | "hats" | "percussion" | "custom";
