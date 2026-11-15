@@ -24,7 +24,7 @@ class Oscillator extends Node {
 }
 
 class Gain extends Node { gain = new Parameter(); }
-class Filter extends Node { type = ""; frequency = new Parameter(); }
+class Filter extends Node { type = ""; frequency = new Parameter(); Q = new Parameter(); }
 
 class AudioContextMock {
   static instance: AudioContextMock;
@@ -32,11 +32,12 @@ class AudioContextMock {
   destination = new Node();
   oscillators: Oscillator[] = [];
   gains: Gain[] = [];
+  filters: Filter[] = [];
   resume = vi.fn(() => Promise.resolve());
   close = vi.fn(() => Promise.resolve());
   constructor() { AudioContextMock.instance = this; }
   createGain() { const gain = new Gain(); this.gains.push(gain); return gain; }
-  createBiquadFilter() { return new Filter(); }
+  createBiquadFilter() { const filter = new Filter(); this.filters.push(filter); return filter; }
   createOscillator() { const oscillator = new Oscillator(); this.oscillators.push(oscillator); return oscillator; }
 }
 
@@ -74,6 +75,57 @@ afterEach(() => {
 });
 
 describe("preview transport", () => {
+  it("uses each melodic track's browser sound while leaving drums on the classic voice", async () => {
+    const transport = new PlaybackTransport(() => {});
+    const note = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 2, velocity: 100 };
+    const tracks = { synth1: [note], synth2: [note], midi1: [note], midi2: [note] };
+    transport.load(pkg, [], [{ ...note, midiNote: 36 }], tracks);
+    transport.setTrackSound("synth1", "acidBass");
+    transport.setTrackSound("synth2", "warmPad");
+    transport.setTrackSound("midi1", "sawLead");
+    transport.setTrackSound("midi2", "keys");
+    await transport.play();
+    const context = AudioContextMock.instance;
+    expect(context.oscillators.map((oscillator) => oscillator.type))
+      .toEqual(["sawtooth", "triangle", "sawtooth", "triangle", "sawtooth"]);
+    expect(context.filters.map((filter) => filter.frequency.value)).toEqual([2400, 900, 3000, 2200, 700]);
+    expect(context.filters[0].Q.value).toBe(8);
+    expect(context.filters[0].frequency.linearRampToValueAtTime).toHaveBeenCalledWith(450, 0.18);
+    expect(context.gains[2].gain.linearRampToValueAtTime).toHaveBeenCalledWith(100 / 127 * 0.2, 0.25);
+    transport.dispose();
+  });
+
+  it("changes future browser notes without interrupting playback or affecting MIDI", async () => {
+    const output = new MidiOutputMock();
+    const device = output as unknown as MIDIOutput;
+    const transport = new PlaybackTransport(() => {});
+    const note = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 1, velocity: 100 };
+    transport.load(pkg, [], [], {
+      synth1: [note, { ...note, startBeat: 1 }], synth2: [note], midi1: [], midi2: [],
+    });
+    transport.setTrackRoutings({ synth1: { output: null, channel: 0 }, synth2: { output: device, channel: 1 } });
+    await transport.play();
+    const context = AudioContextMock.instance;
+    expect(context.oscillators[0].type).toBe("sawtooth");
+    context.currentTime = 0.2;
+    const sent = output.send.mock.calls.length;
+    transport.setTrackSound("synth1", "squareLead");
+    transport.setTrackSound("synth2", "dreamPad");
+    expect(transport.state).toBe("playing");
+    expect(transport.beat).toBeCloseTo(0.4);
+    expect(output.clear).not.toHaveBeenCalled();
+    expect(output.send).toHaveBeenCalledTimes(sent);
+    expect(context.gains[1].disconnect).not.toHaveBeenCalled();
+    context.currentTime = 0.4;
+    vi.advanceTimersByTime(25);
+    expect(context.oscillators[1].type).toBe("square");
+    expect(context.oscillators[1].start).toHaveBeenCalledWith(0.5);
+    transport.pause();
+    await transport.play();
+    expect(context.oscillators.at(-1)!.type).toBe("square");
+    transport.dispose();
+  });
+
   it("mutes queued melody and all drum lanes on a shared MIDI output across a loop boundary", async () => {
     const output = new MidiOutputMock();
     output.name = "Generic MIDI";

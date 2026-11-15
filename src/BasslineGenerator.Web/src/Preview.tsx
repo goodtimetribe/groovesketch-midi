@@ -5,11 +5,13 @@ import PianoRoll, { type FocusTrack, type GeneratorType } from "./PianoRoll";
 import { api, download } from "./api";
 import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
 import { arrangeDrums, drumPatterns } from "./drumPatterns";
-import { hardwareTracks } from "./hardwareTracks";
+import { hardwareTracks, melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
 import { MidiDevices } from "./midi";
+import { melodySeed } from "./melodySeed";
 import { PlaybackTransport, type PlaybackState } from "./playback";
 import { validateMelodyNotes, type Sketch } from "./sketch";
 import { readChordNotes, type MelodicContent } from "./trackView";
+import { browserSounds, defaultTrackSounds, isBrowserSoundId, type BrowserSoundId, type TrackSounds } from "./trackSounds";
 import {
   defaultRoutingProfiles, deleteProfile, loadRoutingProfiles, putProfile, resolveOutput, saveRoutingProfiles,
   routingProfilesKey, type Routing, type RoutingProfiles,
@@ -20,6 +22,23 @@ export interface PreviewHandle { stop(): void }
 
 const volumeKey = "bassline-preview-volume";
 const channelKey = "bassline-preview-midi-channel";
+const soundsKey = "bassline-preview-track-sounds";
+const soundTrackNames: Record<MelodicTrackId, string> = { synth1: "Synth1", synth2: "Synth2", midi1: "Midi1", midi2: "Midi2" };
+
+function initialTrackSounds(): { sounds: TrackSounds; error: boolean } {
+  try {
+    const saved = sessionStorage.getItem(soundsKey);
+    if (saved === null) return { sounds: { ...defaultTrackSounds }, error: false };
+    const value: unknown = JSON.parse(saved);
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid track sounds.");
+    if (!("synth1" in value && "synth2" in value && "midi1" in value && "midi2" in value) ||
+      !isBrowserSoundId(value.synth1) || !isBrowserSoundId(value.synth2) ||
+      !isBrowserSoundId(value.midi1) || !isBrowserSoundId(value.midi2)) throw new Error("Invalid track sounds.");
+    return { sounds: { synth1: value.synth1, synth2: value.synth2, midi1: value.midi1, midi2: value.midi2 }, error: false };
+  } catch {
+    return { sounds: { ...defaultTrackSounds }, error: true };
+  }
+}
 
 function initialContent(pkg: GenerationPackage): MelodicContent {
   return {
@@ -90,6 +109,9 @@ const Preview = forwardRef<PreviewHandle, {
   const [retry, setRetry] = useState(0);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState(false);
+  const [initialSounds] = useState(initialTrackSounds);
+  const [sounds, setSounds] = useState(initialSounds.sounds);
+  const [soundStorageError, setSoundStorageError] = useState(initialSounds.error);
   const [outputs, setOutputs] = useState<MIDIOutput[]>([]);
   const [discovered, setDiscovered] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,6 +184,9 @@ const Preview = forwardRef<PreviewHandle, {
   useEffect(() => { transport.setDrumNotes(drumNotes); }, [transport, drumNotes]);
   useEffect(() => () => transport.dispose(), [transport]);
   useEffect(() => { transport.setVolume(volume); }, [transport, volume]);
+  useEffect(() => {
+    for (const id of melodicTrackIds) transport.setTrackSound(id, sounds[id]);
+  }, [transport, sounds]);
   useEffect(() => {
     const manager = new MidiDevices((available) => {
       setOutputs(available);
@@ -295,7 +320,7 @@ const Preview = forwardRef<PreviewHandle, {
         scaleType: pkg.effectiveConfiguration.scaleType,
         progressionId: pkg.effectiveConfiguration.progressionId,
         sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
-        seed: pkg.seed,
+        seed: melodySeed(pkg.seed, track),
       }));
       const seed = crypto.getRandomValues(new Int32Array(1))[0];
       const generated = await api.replay({
@@ -328,6 +353,15 @@ const Preview = forwardRef<PreviewHandle, {
         ? "MIDI playback could not start. Check the output device and browser permissions."
         : "Audio preview could not start. Check your browser audio settings and try again.");
     });
+  };
+
+  const changeSound = (track: MelodicTrackId, sound: BrowserSoundId) => {
+    const next = { ...sounds, [track]: sound };
+    setSounds(next);
+    try {
+      sessionStorage.setItem(soundsKey, JSON.stringify(next));
+      setSoundStorageError(false);
+    } catch { setSoundStorageError(true); }
   };
 
   const patternControls = <div className="pattern-controls">
@@ -369,6 +403,22 @@ const Preview = forwardRef<PreviewHandle, {
         {refreshing ? "Refreshing..." : "Refresh Devices"}
       </button>
     </div>
+    <details className="track-sounds"><summary>Track Sounds
+      <span className="track-sounds-summary">
+        {melodicTrackIds.map((id) => <span key={id}><span className="track-indicator"
+          style={{ background: `rgb(${hardwareTracks[id].color.join(", ")})` }} aria-hidden="true" /> {soundTrackNames[id]}: {browserSounds[sounds[id]].label}</span>)}
+      </span>
+    </summary>
+      {melodicTrackIds.map((id) => <label className="track-sound-row" key={id}>
+        <span><span className="track-indicator" style={{ background: `rgb(${hardwareTracks[id].color.join(", ")})` }} aria-hidden="true" /> {soundTrackNames[id]}</span>
+        <select aria-label={`${soundTrackNames[id]} browser sound`} value={sounds[id]} onChange={(event) => {
+          if (isBrowserSoundId(event.target.value)) changeSound(id, event.target.value);
+        }}>
+          {Object.entries(browserSounds).map(([key, sound]) => <option key={key} value={key}>{sound.label}</option>)}
+        </select>
+      </label>)}
+      <p className="hint">Browser Synth only. Changes apply to newly scheduled notes; MIDI output and exports are unchanged.</p>
+    </details>
     <label>Profile
       <select value={profiles.activeId ?? ""} onChange={(event) => selectProfile(event.target.value)}>
         {!profiles.activeId && <option value="">No profile selected</option>}
@@ -425,6 +475,7 @@ const Preview = forwardRef<PreviewHandle, {
     {profileError && <p className="warning" role="alert">{profileError}</p>}
     {discovered && outputs.length === 0 && <p className="hint" role="status">No MIDI outputs found. Connect a device or virtual port and refresh.</p>}
     {storageError && <p className="warning" role="alert">Volume could not be saved for this browser session.</p>}
+    {soundStorageError && <p className="warning" role="alert">Track Sounds could not be loaded or saved for this browser session.</p>}
     {initial.channelError && <p className="warning" role="alert">The previous MIDI channel could not be loaded from this browser session.</p>}
   </div>;
   return <>

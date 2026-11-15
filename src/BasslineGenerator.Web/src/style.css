@@ -93,6 +93,9 @@ summary { cursor: pointer; font-weight: 700; }
 .volume span { color: #e6ecf5; }
 .transport-state { color: #aab9ca; font-size: .8rem; }
 .transport > button { align-self: flex-start; }
+.track-sounds-summary { display: grid; gap: 4px; margin-top: 8px; color: #a9b7c8; font-size: .75rem; font-weight: 400; }
+.track-sounds[open] .track-sounds-summary { display: none; }
+.track-sound-row { display: grid; grid-template-columns: minmax(70px, auto) minmax(0, 1fr); align-items: center; gap: 10px; }
 .routing fieldset { border-bottom: 1px solid #35445a; padding-top: 12px; }
 .routing-profiles { padding-top: 16px; }
 .arrangement-controls { display: flex; flex-wrap: wrap; gap: 0 16px; }

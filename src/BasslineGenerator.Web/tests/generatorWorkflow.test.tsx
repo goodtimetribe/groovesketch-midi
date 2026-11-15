@@ -324,12 +324,12 @@ it("generates deterministic melody content only on each focused melodic track", 
   expect(container.textContent).toContain("Midi1 · Lead");
   expect(container.textContent).toContain("Midi2 · Lead");
   expect(container.textContent).toContain("Visible notes (4)");
-  expect(vi.mocked(api.melody).mock.calls).toEqual(Array.from({ length: 4 }, () => [{
+  expect(vi.mocked(api.melody).mock.calls).toEqual([0, 3, 1, 2].map((seed) => [{
     rootNote: pkg.effectiveConfiguration.rootNote,
     scaleType: pkg.effectiveConfiguration.scaleType,
     progressionId: pkg.effectiveConfiguration.progressionId,
     sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
-    seed: pkg.seed,
+    seed,
   }]));
 
   await act(async () => button("Refresh Devices").click());
@@ -345,6 +345,24 @@ it("generates deterministic melody content only on each focused melodic track", 
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x93, generatedMelody.midiNote, generatedMelody.velocity]);
+});
+
+it("repeats each track's melody seed without replacing the other track", async () => {
+  vi.mocked(api.melody).mockImplementation(async (request) => [{
+    ...generatedMelody,
+    note: request.seed === 1 ? "E5" : "F5",
+    midiNote: request.seed === 1 ? 76 : 77,
+  }]);
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  for (const track of ["midi1", "midi2", "midi1", "midi2"]) {
+    await select("Focus", track);
+    await select("Generator", "melody");
+    await act(async () => button("Generate Melody").click());
+  }
+  expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([1, 2, 1, 2]);
+  const rows = [...container.querySelectorAll(".note-list tbody tr")].map((row) => row.textContent);
+  expect(rows.some((row) => row?.includes("Midi1 · Lead") && row.includes("E5 (76)"))).toBe(true);
+  expect(rows.some((row) => row?.includes("Midi2 · Lead") && row.includes("F5 (77)"))).toBe(true);
 });
 
 it("reselecting a lead track selects the melody generator and melody failures preserve its content", async () => {

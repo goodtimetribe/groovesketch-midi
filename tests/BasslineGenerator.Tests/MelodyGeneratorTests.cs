@@ -26,6 +26,19 @@ public class MelodyGeneratorTests
     }
 
     [Fact]
+    public void TrackDerivedSeedsCanProduceDistinctRepeatableMelodies()
+    {
+        var generator = new MelodyGenerator();
+        var progression = ChordProgressionLibrary.Find("synthwave")!;
+        var midi1 = generator.Generate("A", "Minor", progression, FourBars, 123);
+        var midi2 = generator.Generate("A", "Minor", progression, FourBars, 120);
+
+        Assert.Equal(midi1, generator.Generate("A", "Minor", progression, FourBars, 123));
+        Assert.Equal(midi2, generator.Generate("A", "Minor", progression, FourBars, 120));
+        Assert.NotEqual(midi1, midi2);
+    }
+
+    [Fact]
     public void EightRhythmsRepeatAndAreIndependentOfHarmony()
     {
         var generator = new MelodyGenerator();

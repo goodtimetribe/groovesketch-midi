@@ -80,6 +80,9 @@ pause, stop, restart, and loop control the preview; looping is enabled by defaul
 Piano-roll track checkboxes control both visibility and playback, without changing
 exports. Synth volume is remembered for the current browser session. Preview plays
 bass, chords, and an optional built-in drum pattern on a shared transport.
+In **Track Sounds**, select a browser sound independently for Synth1, Synth2,
+Midi1, and Midi2. Selections last for the browser session and apply to newly
+scheduled notes; they do not affect MIDI output, exports, packages, or share codes.
 Select a pattern to add the drum track; it repeats from the start of each section
 and is truncated at section boundaries.
 The creative toolbar holds sketch and focused-track generation actions.
@@ -99,8 +102,10 @@ share codes, or bass or bass-and-chords MIDI exports.
 In the piano roll, focus Synth1, Synth2, Midi1, or Midi2, then choose **Melody**
 and select **Generate Melody** in the creative toolbar to replace that track
 with a chord-aware Lead.
-The same package seed and musical settings reproduce the same two-bar motif;
-it repeats across sections with pitches adapted to the progression. Focused
+The same package seed, musical settings, and destination track reproduce the
+same two-bar motif. Each hardware track derives a distinct melody seed, although
+different seeds may still produce the same notes. The motif repeats across
+sections with pitches adapted to the progression. Focused
 track changes are not saved in packages, share codes, or the Bass and Bass +
 Chords exports. Routing is unchanged.
 Drums use the browser's pitched preview synth by default, not a drum kit. Route
