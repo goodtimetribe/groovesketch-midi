@@ -130,7 +130,8 @@ public class ApiTests
         Assert.Equal("audio/midi", response.Content.Headers.ContentType?.MediaType);
         Assert.Equal("bassline-and-chords.mid", response.Content.Headers.ContentDisposition?.FileName?.Trim('"'));
         Assert.True(response.Headers.CacheControl?.NoStore);
-        using var stream = new MemoryStream(await response.Content.ReadAsByteArrayAsync());
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        using var stream = new MemoryStream(bytes);
         var midi = MidiFile.Read(stream);
         var tracks = midi.GetTrackChunks().ToArray();
         Assert.Equal(MidiFileFormat.MultiTrack, midi.OriginalFormat);
@@ -139,6 +140,19 @@ public class ApiTests
         Assert.All(tracks[2].Events.OfType<NoteOnEvent>(), note => Assert.Equal(1, (int)note.Channel));
         Assert.Equal(package.Notes!.Count, tracks[1].Events.OfType<NoteOnEvent>().Count());
         Assert.Equal(6, tracks[2].Events.OfType<NoteOnEvent>().Count());
+        Assert.Equal([57, 60, 64, 56, 59, 64],
+            tracks[2].Events.OfType<NoteOnEvent>().Select(note => (int)note.NoteNumber).ToArray());
+
+        using var replay = await client.PostAsJsonAsync("/api/package/combined-midi", package);
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        Assert.Equal(bytes, await replay.Content.ReadAsByteArrayAsync());
+
+        using var bassOnly = await client.PostAsJsonAsync("/api/package/midi", package);
+        Assert.Equal(HttpStatusCode.OK, bassOnly.StatusCode);
+        var extractedBass = new MidiFile(tracks[0], tracks[1]) { TimeDivision = midi.TimeDivision };
+        using var bassStream = new MemoryStream();
+        extractedBass.Write(bassStream, MidiFileFormat.MultiTrack);
+        Assert.Equal(await bassOnly.Content.ReadAsByteArrayAsync(), bassStream.ToArray());
     }
 
     [Fact]
