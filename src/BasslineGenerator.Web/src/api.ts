@@ -1,4 +1,4 @@
-import type { GenerateRequest, GenerationPackage, Progression } from "./types";
+import type { GenerateRequest, GenerationPackage, NoteData, Progression } from "./types";
 
 const base = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -34,10 +34,19 @@ async function midi(path: string, body: GenerationPackage): Promise<Blob> {
   return response.blob();
 }
 
+export interface MelodyGenerateRequest {
+  rootNote: string;
+  scaleType: string;
+  progressionId: string;
+  sections: { bars: number }[];
+  seed: number;
+}
+
 export const api = {
   presets: () => json<string[]>("/api/presets"),
   progressions: () => json<Progression[]>("/api/progressions"),
   generate: (body: GenerateRequest) => json<GenerationPackage>("/api/generate/package", body),
+  melody: (body: MelodyGenerateRequest) => json<NoteData[]>("/api/melody", body),
   replay: (body: GenerationPackage) => json<GenerationPackage>("/api/package/regenerate", body),
   share: (body: GenerationPackage) => json<{ shareCode: string }>("/api/share", body),
   decode: (shareCode: string) => json<GenerationPackage>("/api/share/decode", { shareCode }),

@@ -33,6 +33,7 @@ builder.Services.AddTransient<BassMovementGenerator>();
 builder.Services.AddTransient<SectionGenerator>();
 builder.Services.AddTransient<MotifGenerator>();
 builder.Services.AddTransient<ChordGenerator>();
+builder.Services.AddTransient<MelodyGenerator>();
 builder.Services.AddTransient<MidiFileFactory>();
 builder.Services.AddTransient<IBassGenerator, BasslineGenerator.Generation.BasslineGenerator>();
 builder.Services.AddTransient<GenerationPackageService>();
@@ -57,6 +58,7 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
                 "bars" => "Bars must be an integer between 1 and 512.",
                 "mode" => "Mode must be single or arrangement.",
                 "progression" => "Progression must be one of the documented progression names.",
+                "progressionid" => "Progression ID must be one of the documented progression IDs.",
                 "sections" => "Sections must contain 1–512 bars each and at most 4096 bars total, and cannot be combined with arrangement mode.",
                 "sharecode" => "Share code is required.",
                 "seed" => "Seed must be a signed 32-bit integer.",

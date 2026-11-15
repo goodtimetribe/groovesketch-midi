@@ -27,6 +27,17 @@ function initialContent(pkg: GenerationPackage): MelodicContent {
   };
 }
 
+function validateMelodyNotes(value: unknown): NoteData[] {
+  const isNoteData = (note: unknown): note is NoteData => typeof note === "object" && note !== null &&
+    "note" in note && typeof note.note === "string" && note.note.trim().length > 0 &&
+    "midiNote" in note && typeof note.midiNote === "number" && Number.isInteger(note.midiNote) && note.midiNote >= 0 && note.midiNote <= 127 &&
+    "startBeat" in note && typeof note.startBeat === "number" && Number.isFinite(note.startBeat) && note.startBeat >= 0 &&
+    "durationBeats" in note && typeof note.durationBeats === "number" && Number.isFinite(note.durationBeats) && note.durationBeats > 0 &&
+    "velocity" in note && typeof note.velocity === "number" && Number.isInteger(note.velocity) && note.velocity >= 1 && note.velocity <= 127;
+  if (!Array.isArray(value) || value.length === 0 || !value.every(isNoteData)) throw new Error("The melody response was invalid.");
+  return value;
+}
+
 function initialProfiles() {
   try {
     const data = loadRoutingProfiles(localStorage);
@@ -255,6 +266,13 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     setError("");
     const generate = async () => {
       if (generator === "chords") return readChordNotes(await (await api.combinedMidi(pkg)).arrayBuffer());
+      if (generator === "melody") return validateMelodyNotes(await api.melody({
+        rootNote: pkg.effectiveConfiguration.rootNote,
+        scaleType: pkg.effectiveConfiguration.scaleType,
+        progressionId: pkg.effectiveConfiguration.progressionId,
+        sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
+        seed: pkg.seed,
+      }));
       const seed = crypto.getRandomValues(new Int32Array(1))[0];
       const generated = await api.replay({
         ...pkg, seed, notes: null, statistics: null,
@@ -266,7 +284,7 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
     void generate().then((notes) => {
       if (generationRevision.current !== revision) return;
       setContent((current) => current.pkg === pkg
-        ? { ...current, tracks: { ...current.tracks, [track]: { role: generator, notes } } }
+        ? { ...current, tracks: { ...current.tracks, [track]: { role: generator === "melody" ? "lead" : generator, notes } } }
         : current);
     }).catch((e: unknown) => {
       if (generationRevision.current === revision)

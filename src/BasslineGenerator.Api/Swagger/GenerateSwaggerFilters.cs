@@ -78,6 +78,18 @@ public sealed class GenerateExamplesFilter : IOperationFilter
 {
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
+        if (context.MethodInfo.Name == "Melody" && context.MethodInfo.DeclaringType == typeof(Controllers.BasslineController))
+        {
+            operation.RequestBody.Content["application/json"].Example = new OpenApiObject
+            {
+                ["rootNote"] = new OpenApiString("C"),
+                ["scaleType"] = new OpenApiString("Major"),
+                ["progressionId"] = new OpenApiString("pop-anthem"),
+                ["sections"] = new OpenApiArray { new OpenApiObject { ["bars"] = new OpenApiInteger(4) } },
+                ["seed"] = new OpenApiInteger(12345)
+            };
+            return;
+        }
         if (context.MethodInfo.Name == "PackageMidi" && context.MethodInfo.DeclaringType == typeof(Controllers.BasslineController))
         {
             operation.Responses["200"].Content["audio/midi"].Schema = new OpenApiSchema { Type = "string", Format = "binary" };

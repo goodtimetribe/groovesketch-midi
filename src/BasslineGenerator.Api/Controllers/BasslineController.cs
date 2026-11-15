@@ -16,6 +16,7 @@ namespace BasslineGenerator.Api.Controllers;
 public sealed class BasslineController(
     IBassGenerator generator,
     ChordGenerator chords,
+    MelodyGenerator melody,
     MidiFileFactory midiFiles,
     IStreamMidiExporter exporter,
     IEnumerable<IPreset> presets,
@@ -54,6 +55,27 @@ public sealed class BasslineController(
     [ProducesResponseType<ErrorResponse>(StatusCodes.Status500InternalServerError)]
     public ActionResult<ProgressionResponse[]> Progressions() => Ok(ChordProgressionLibrary.All.Select(p =>
         new ProgressionResponse(p.Id, p.DisplayName, p.Description, p.ChordSequence, p.Mood, p.SuggestedUse)).ToArray());
+
+    /// <summary>Generates a deterministic, chord-aware melody for preview.</summary>
+    /// <remarks>Returns notes in beats without storing the request or generated content. The resolved progression ID and seed must be supplied.</remarks>
+    /// <response code="200">The monophonic melody notes.</response>
+    /// <response code="400">The request is invalid.</response>
+    /// <response code="429">The rate limit was exceeded.</response>
+    /// <response code="500">An unexpected server error occurred.</response>
+    [HttpPost("melody")]
+    [Consumes("application/json")]
+    [ProducesResponseType<NoteData[]>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType<ErrorResponse>(StatusCodes.Status500InternalServerError)]
+    public ActionResult<NoteData[]> Melody([FromBody] MelodyRequest request)
+    {
+        var progression = ChordProgressionLibrary.Find(request.ProgressionId!)!;
+        var sections = request.Sections!.Select(section => new SongSection("", SongWorld.Dreamy, section!.Bars!.Value)).ToArray();
+        var notes = melody.Generate(request.RootNote!, request.ScaleType!, progression, sections, request.Seed!.Value);
+        return Ok(notes.Select(note => new NoteData(NoteUtilities.NoteName(note.Pitch), note.Pitch,
+            (double)note.Start / MusicConstants.Ppq, (double)note.Length / MusicConstants.Ppq, note.Velocity)).ToArray());
+    }
 
     /// <summary>Generates a MIDI bassline.</summary>
     /// <remarks>Generates a MIDI file entirely in memory and returns it directly to the caller. Send Accept: application/json for the effective configuration and statistics; use its seed to reproduce the MIDI. No generated musical content is stored.</remarks>

@@ -80,6 +80,12 @@ pause, stop, restart, and loop control the preview, and synth volume is remember
 the current browser session. Preview plays bass, chords, and an optional built-in
 drum pattern on a shared transport. Select a pattern to add the drum track; it
 repeats from the start of each section and is truncated at section boundaries.
+In the piano roll, focus Synth1, Synth2, Midi1, or Midi2, choose **Melody**,
+and select **Generate Melody** to replace that track with a chord-aware Lead.
+The same package seed and musical settings reproduce the same two-bar motif;
+it repeats across sections with pitches adapted to the progression. Focused
+track changes are preview-only and are not saved in packages, share codes, or
+the Bass and Bass + Chords exports. Routing is unchanged.
 Drums use the browser's pitched preview synth by default, not a drum kit. Route
 them to a MIDI drum instrument for percussion. Drum patterns are not included
 in saved packages, share codes, or the Bass and Bass + Chords exports.
@@ -182,6 +188,7 @@ as the response media type before executing to download MIDI directly.
 | `GET /api/health` | Returns `{"status":"healthy","version":"1.0.0"}`. |
 | `GET /api/presets` | Returns `["Dreamy","Pop","Acid","Rave"]`. |
 | `GET /api/progressions` | Returns progression IDs, names, descriptions, chord sequences, moods and suggested uses. |
+| `POST /api/melody` | Returns deterministic, monophonic melody notes in beats for a root, scale, resolved progression ID, section lengths and seed. |
 | `POST /api/generate` | Returns a downloadable `bassline.mid` (`audio/midi`) by default, or effective generation metadata (`application/json`) when requested. |
 | `POST /api/generate/package` | Same request as `/api/generate`; returns a JSON generation package (no MIDI). |
 | `POST /api/package/regenerate` | Replays a saved or edited package and returns a fresh one. |
@@ -189,6 +196,11 @@ as the response media type before executing to download MIDI directly.
 | `POST /api/package/combined-midi` | Replays a package and returns a Type 1 MIDI file with conductor, bass and chord tracks. |
 | `POST /api/share` | Package in, `{"shareCode":"..."}` out. |
 | `POST /api/share/decode` | `{"shareCode":"..."}` in, package out. |
+
+For example, `/api/melody` accepts
+`{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":4}],"seed":12345}`.
+Section lengths must each be 1–512 bars, with at most 4096 bars total.
+Melody generation does not modify or persist the bass package.
 
 Generation remains a MIDI download by default for existing clients. To receive a
 JSON configuration instead, send `Accept: application/json` to the same endpoint.

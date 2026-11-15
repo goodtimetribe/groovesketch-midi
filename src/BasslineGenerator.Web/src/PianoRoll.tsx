@@ -4,7 +4,7 @@ import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicCon
 import type { MelodicTrackId } from "./hardwareTracks";
 import type { GenerationPackage, NoteData } from "./types";
 
-export type GeneratorType = "bass" | "chords" | "drums";
+export type GeneratorType = "bass" | "chords" | "melody" | "drums";
 export type FocusTrack = MelodicTrackId | "drums";
 interface Props {
   pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[];
@@ -121,7 +121,10 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
       <label>Focus <select value={focus} onChange={(event) => {
         const next = event.target.value;
         setFocus(next);
-        if (workflow) setGenerator(next === "drums" ? "drums" : workflow.content[next as MelodicTrackId].role ?? "bass");
+        if (workflow) {
+          const role = next === "drums" ? "drums" : workflow.content[next as MelodicTrackId].role ?? "bass";
+          setGenerator(role === "lead" ? "melody" : role);
+        }
       }}>
         {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
       </select></label>
@@ -129,16 +132,16 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
         <label>Generator <select value={generator} onChange={(event) => {
           const value = event.target.value;
           if (value === "drums" && focus === "drums") setGenerator(value);
-          else if ((value === "bass" || value === "chords") && focus !== "drums") setGenerator(value);
+          else if ((value === "bass" || value === "chords" || value === "melody") && focus !== "drums") setGenerator(value);
         }}>
           <option value="bass" disabled={focus === "drums"}>Bass</option>
           <option value="chords" disabled={focus === "drums"}>Chords</option>
+          <option value="melody" disabled={focus === "drums"}>Melody</option>
           <option value="drums" disabled={focus !== "drums"}>Drums</option>
-          <option value="melody" disabled>Melody (Coming Soon)</option>
         </select></label>
         <button type="button" disabled={workflow.busy || workflow.disabled || (generator === "drums" && !workflow.patternSelected)}
           onClick={() => workflow.generate(focus as FocusTrack, generator)}>
-          {generator === "drums" ? "Apply Pattern" : generator === "bass" ? "Generate Bass" : "Generate Chords"}
+          {generator === "drums" ? "Apply Pattern" : generator === "melody" ? "Generate Melody" : generator === "bass" ? "Generate Bass" : "Generate Chords"}
         </button>
       </>}
     </div>
