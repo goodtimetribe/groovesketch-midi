@@ -1,7 +1,7 @@
 import type { GenerationPackage, NoteData } from "./types";
 import { defaultRoleAssignments, drumTrackForNote, hardwareTracks, melodicTrackIds, type HardwareTrackId, type MelodicTrackId, type MusicalRole, type RgbColor } from "./hardwareTracks";
 
-export type TrackContent = { role: "bass" | "chords" | null; notes: NoteData[] };
+export type TrackContent = { role: "bass" | "chords" | "lead" | null; notes: NoteData[] };
 export type MelodicContent = Record<MelodicTrackId, TrackContent>;
 
 export type TrackViewModel = {
@@ -18,7 +18,7 @@ const drumIndicator = `linear-gradient(to bottom, rgb(${hardwareTracks.drum1.col
 export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[], content?: MelodicContent): TrackViewModel[] {
   if (content) return [
     ...melodicTrackIds.map((id): TrackViewModel => ({
-      id, name: `${id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : "Midi2"}${content[id].role ? ` · ${content[id].role === "bass" ? "Bass" : "Chords"}` : ""}`,
+      id, name: `${id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : "Midi2"}${content[id].role ? ` · ${content[id].role === "bass" ? "Bass" : content[id].role === "chords" ? "Chords" : "Lead"}` : ""}`,
       kind: "track", hardwareTrackId: id, role: content[id].role ?? "custom",
       visible: visibility[id] ?? true, notes: content[id].notes, indicator: `rgb(${hardwareTracks[id].color.join(", ")})`,
     })),

@@ -25,6 +25,23 @@ describe("API client", () => {
     }));
   });
 
+  it("posts the focused melody request and returns note data", async () => {
+    const notes = [{ note: "D4", midiNote: 62, startBeat: 0, durationBeats: 1, velocity: 90 }];
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(notes), {
+      status: 200, headers: { "content-type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetch);
+    const request = {
+      rootNote: "A", scaleType: "Minor", progressionId: "x", sections: [{ bars: 4 }, { bars: 2 }], seed: 7,
+    };
+    expect(await api.melody(request)).toEqual(notes);
+    expect(fetch).toHaveBeenCalledWith("/api/melody", expect.objectContaining({
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(request),
+    }));
+  });
+
   it("reports rate limits without retrying", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response("", { status: 429 }));
     vi.stubGlobal("fetch", fetch);
