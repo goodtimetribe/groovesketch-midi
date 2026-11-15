@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlaybackState, PlaybackTransport } from "./playback";
-import { createTracks, tracksForRendering } from "./trackView";
+import { createTracks, rgba, trackNoteColor, tracksForRendering } from "./trackView";
 import type { GenerationPackage, NoteData } from "./types";
 
 interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[] }
@@ -82,7 +82,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
         const x = axis + Math.max(0, beat) / (barsVisible * 4) * gridWidth;
         const end = axis + Math.min(barsVisible * 4, beat + note.durationBeats) / (barsVisible * 4) * gridWidth;
         const y = top + (high - note.midiNote) * rowHeight;
-        ctx.fillStyle = `rgba(82, 222, 181, ${(0.35 + note.velocity / 127 * 0.65) * (ghost ? 0.35 : 1)})`;
+        ctx.fillStyle = rgba(trackNoteColor(track, note), (0.35 + note.velocity / 127 * 0.65) * (ghost ? 0.35 : 1));
         ctx.fillRect(x, y + 1, Math.max(1, end - x), Math.max(1, rowHeight - 2));
       }
     };
@@ -106,7 +106,8 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
       <fieldset><legend>Tracks</legend>
         {tracks.map((track) => <label className="check" key={track.id}>
           <input type="checkbox" checked={track.visible} onChange={(event) =>
-            setVisibility((old) => ({ ...old, [track.id]: event.target.checked }))} /> {track.name}
+            setVisibility((old) => ({ ...old, [track.id]: event.target.checked }))} />
+          <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" /> {track.name}
         </label>)}
       </fieldset>
       <label>Focus <select value={focus} onChange={(event) => setFocus(event.target.value)}>
