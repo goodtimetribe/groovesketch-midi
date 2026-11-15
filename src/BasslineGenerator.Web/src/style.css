@@ -62,6 +62,7 @@ summary { cursor: pointer; font-weight: 700; }
 .track-controls legend { float: left; margin-right: 12px; font-size: .85rem; font-weight: 700; }
 .track-controls label { margin: 6px 0; }
 .track-controls > label { flex-direction: row; align-items: center; }
+.track-indicator { display: inline-block; width: .8rem; height: .8rem; border: 1px solid #e6ecf5; border-radius: 2px; box-shadow: 0 0 0 1px #101520; }
 .roll-canvas { position: relative; }
 .playhead { position: absolute; top: 26px; bottom: 1px; width: 2px; background: #ffe294; pointer-events: none; }
 .roll canvas { display: block; width: 100%; border: 1px solid #34445a; border-radius: 6px; }

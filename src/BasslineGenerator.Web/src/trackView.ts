@@ -1,19 +1,52 @@
 import type { GenerationPackage, NoteData } from "./types";
 
+type RgbColor = readonly [red: number, green: number, blue: number];
+
+export const circuitTracksColors = {
+  synth1: [230, 72, 152],
+  synth2: [94, 224, 181],
+  midi1: [73, 158, 255],
+  midi2: [244, 115, 167],
+  drum1: [255, 139, 61],
+  drum2: [255, 210, 66],
+  drum3: [180, 140, 255],
+  drum4: [69, 211, 224],
+} as const satisfies Record<string, RgbColor>;
+
 export interface TrackViewModel {
   id: string;
   name: string;
   role: string;
   visible: boolean;
   notes: NoteData[];
+  color: RgbColor;
+  indicator: string;
 }
 
 export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[]): TrackViewModel[] {
   return [
-    { id: "bass", name: "Bass", role: "bass", visible: visibility.bass ?? true, notes: pkg.notes ?? [] },
-    { id: "chords", name: "Chords", role: "chords", visible: visibility.chords ?? true, notes: chordNotes },
-    ...(drumNotes ? [{ id: "drums", name: "Drums", role: "drums", visible: visibility.drums ?? true, notes: drumNotes }] : []),
+    { id: "bass", name: "Bass", role: "bass", visible: visibility.bass ?? true, notes: pkg.notes ?? [], color: circuitTracksColors.synth1, indicator: "rgb(230, 72, 152)" },
+    { id: "chords", name: "Chords", role: "chords", visible: visibility.chords ?? true, notes: chordNotes, color: circuitTracksColors.synth2, indicator: "rgb(94, 224, 181)" },
+    ...(drumNotes ? [{
+      id: "drums", name: "Drums", role: "drums", visible: visibility.drums ?? true, notes: drumNotes,
+      color: circuitTracksColors.drum1,
+      indicator: "linear-gradient(to bottom, rgb(255, 139, 61) 0 25%, rgb(255, 210, 66) 25% 50%, rgb(180, 140, 255) 50% 75%, rgb(69, 211, 224) 75% 100%)",
+    }] : []),
   ];
+}
+
+export function trackNoteColor(track: TrackViewModel, note: NoteData): RgbColor {
+  if (track.role !== "drums") return track.color;
+  switch (note.midiNote) {
+    case 36: return circuitTracksColors.drum1;
+    case 38: return circuitTracksColors.drum2;
+    case 42: return circuitTracksColors.drum3;
+    default: return circuitTracksColors.drum4;
+  }
+}
+
+export function rgba(color: RgbColor, opacity: number): string {
+  return `rgba(${color.join(", ")}, ${opacity})`;
 }
 
 export function tracksForRendering(tracks: TrackViewModel[], focus: string) {

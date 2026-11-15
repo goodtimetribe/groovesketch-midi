@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialRequest } from "../src/domain";
 import PianoRoll from "../src/PianoRoll";
 import { PlaybackTransport } from "../src/playback";
-import { createTracks, readChordNotes, tracksForRendering, type TrackViewModel } from "../src/trackView";
+import { createTracks, readChordNotes, trackNoteColor, tracksForRendering, type TrackViewModel } from "../src/trackView";
 import type { GenerationPackage, NoteData } from "../src/types";
 
 const bass: NoteData = { note: "C2", midiNote: 36, startBeat: 0, durationBeats: 1, velocity: 127 };
@@ -37,7 +37,7 @@ describe("track view", () => {
     expect(tracks.map(({ id, role, visible }) => ({ id, role, visible }))).toEqual([
       { id: "bass", role: "bass", visible: true }, { id: "chords", role: "chords", visible: true },
     ]);
-    const future: TrackViewModel = { id: "lead", name: "Lead", role: "lead", visible: true, notes: [bass] };
+    const future: TrackViewModel = { id: "lead", name: "Lead", role: "lead", visible: true, notes: [bass], color: [73, 158, 255], indicator: "rgb(73, 158, 255)" };
     expect(tracksForRendering([...tracks, future], "chords").map(({ track, ghost }) => [track.id, ghost]))
       .toEqual([["bass", true], ["lead", true], ["chords", false]]);
     expect(tracksForRendering(createTracks(pkg, [chord], { chords: false }), "bass").map(({ track, ghost }) => [track.id, ghost]))
@@ -107,12 +107,12 @@ describe("piano roll", () => {
     const before = JSON.stringify(pkg);
     const load = vi.spyOn(transport, "load");
     expect(container.textContent).toContain("Visible notes (2)");
-    expect(fills).toContain(`rgba(82, 222, 181, ${(0.35 + 90 / 127 * 0.65) * 0.35})`);
-    expect(fills.at(-1)).toBe("rgba(82, 222, 181, 1)");
+    expect(fills).toContain(`rgba(94, 224, 181, ${(0.35 + 90 / 127 * 0.65) * 0.35})`);
+    expect(fills.at(-1)).toBe("rgba(230, 72, 152, 1)");
     fills.length = 0;
     await changeSelect("Focus", "chords");
-    expect(fills).toContain("rgba(82, 222, 181, 0.35)");
-    expect(fills.at(-1)).toBe(`rgba(82, 222, 181, ${0.35 + 90 / 127 * 0.65})`);
+    expect(fills).toContain("rgba(230, 72, 152, 0.35)");
+    expect(fills.at(-1)).toBe(`rgba(94, 224, 181, ${0.35 + 90 / 127 * 0.65})`);
     await act(async () => checkbox("Bass").click());
     expect(container.textContent).toContain("Visible notes (1)");
     expect(container.textContent).not.toContain("C2 (36)");
@@ -137,13 +137,17 @@ describe("piano roll", () => {
     expect(container.textContent).toContain("Visible notes (2)");
   });
 
-  it("shows drum notes as a focusable ghost track", async () => {
+  it("shows drum notes as a focusable track with Circuit Tracks lane colors", async () => {
     const drum = { note: "D2", midiNote: 38, startBeat: 0.5, durationBeats: 0.25, velocity: 100 };
     await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped" chordNotes={[chord]} drumNotes={[drum]} />));
     expect(container.textContent).toContain("Visible notes (3)");
     expect(container.textContent).toContain("D2 (38)");
     await changeSelect("Focus", "drums");
-    expect(fills.at(-1)).toBe(`rgba(82, 222, 181, ${0.35 + 100 / 127 * 0.65})`);
+    expect(fills.at(-1)).toBe(`rgba(255, 210, 66, ${0.35 + 100 / 127 * 0.65})`);
+    expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 36 })).toEqual([255, 139, 61]);
+    expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], drum)).toEqual([255, 210, 66]);
+    expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 42 })).toEqual([180, 140, 255]);
+    expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 54 })).toEqual([69, 211, 224]);
     await act(async () => checkbox("Drums").click());
     expect(container.textContent).not.toContain("D2 (38)");
   });
