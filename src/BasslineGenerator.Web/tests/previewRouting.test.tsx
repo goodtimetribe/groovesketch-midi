@@ -3,6 +3,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../src/api";
+import * as apiModule from "../src/api";
+import * as allTracksMidi from "../src/allTracksMidi";
 import { initialRequest } from "../src/domain";
 import { PlaybackTransport } from "../src/playback";
 import Preview from "../src/Preview";
@@ -130,7 +132,7 @@ it("shows and remembers per-track browser sounds in the playback sidebar", async
   expect(sounds.open).toBe(false);
   expect(sounds.querySelector("summary")?.textContent).toContain("Synth1: Classic");
   expect(sounds.querySelector("summary")?.textContent).toContain("Midi2: Classic");
-  expect(sounds.querySelectorAll("select")).toHaveLength(4);
+  expect(sounds.querySelectorAll("select")).toHaveLength(8);
   expect(assign).toHaveBeenCalledWith("synth1", "classic");
   expect(assign).toHaveBeenCalledWith("midi2", "classic");
   await act(async () => sounds.querySelector("summary")!.click());
@@ -152,6 +154,73 @@ it("shows and remembers per-track browser sounds in the playback sidebar", async
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} />));
   expect(sidebar.querySelector<HTMLSelectElement>('[aria-label="Synth2 browser sound"]')?.value).toBe("warmPad");
   sidebar.remove();
+});
+
+it("edits and restores independent 1-based hardware patches without changing browser sounds", async () => {
+  const assign = vi.spyOn(PlaybackTransport.prototype, "setTrackPatch");
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  const selectPatch = async (name: string, value: string) => {
+    const control = container.querySelector<HTMLSelectElement>(`[aria-label="${name} hardware patch"]`)!;
+    await act(async () => { control.value = value; control.dispatchEvent(new Event("change", { bubbles: true })); });
+  };
+  const synth = container.querySelector<HTMLSelectElement>('[aria-label="Synth1 hardware patch"]')!;
+  expect(synth.options).toHaveLength(129);
+  expect(synth.options[0].textContent).toBe("Off");
+  expect(synth.options[1].value).toBe("1");
+  expect(synth.options[128].value).toBe("128");
+  expect(synth.value).toBe("");
+  await selectPatch("Synth1", "1");
+  await selectPatch("Midi2", "128");
+  expect(assign).toHaveBeenCalledWith("synth1", 0);
+  expect(assign).toHaveBeenCalledWith("midi2", 127);
+  expect(container.querySelector<HTMLSelectElement>('[aria-label="Synth1 browser sound"]')?.value).toBe("classic");
+  expect(JSON.parse(sessionStorage.getItem("bassline-preview-hardware-patches")!)).toEqual({
+    synth1: 0, synth2: null, midi1: null, midi2: 127,
+  });
+  expect(container.querySelector(".track-sounds summary")?.textContent).toContain("Midi2: Classic · Patch 128");
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.querySelector<HTMLSelectElement>('[aria-label="Synth1 hardware patch"]')?.value).toBe("1");
+  expect(container.querySelector<HTMLSelectElement>('[aria-label="Midi2 hardware patch"]')?.value).toBe("128");
+  await selectPatch("Synth1", "");
+  expect(assign).toHaveBeenLastCalledWith("midi2", 127);
+  expect(JSON.parse(sessionStorage.getItem("bassline-preview-hardware-patches")!).synth1).toBeNull();
+});
+
+it("reports invalid stored hardware patches", async () => {
+  sessionStorage.setItem("bassline-preview-hardware-patches", '{"synth1":128}');
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.textContent).toContain("Hardware Patches could not be loaded or saved");
+  expect(container.querySelector<HTMLSelectElement>('[aria-label="Synth1 hardware patch"]')?.value).toBe("");
+});
+
+it("sends selected hardware patches on playback and passes them to all-tracks export", async () => {
+  vi.stubGlobal("AudioContext", class {
+    currentTime = 0;
+    destination = {};
+    createGain() { return { gain: { value: 0, setValueAtTime() {} }, connect() {} }; }
+    resume() { return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  });
+  const create = vi.spyOn(allTracksMidi, "createAllTracksMidi");
+  vi.spyOn(apiModule, "download").mockImplementation(() => {});
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  for (const [name, value] of [["Synth1", "17"], ["Synth2", "128"]]) {
+    const control = container.querySelector<HTMLSelectElement>(`[aria-label="${name} hardware patch"]`)!;
+    await act(async () => { control.value = value; control.dispatchEvent(new Event("change", { bubbles: true })); });
+  }
+  await act(async () => button("Refresh Devices").click());
+  await select("Bass Output", "circuit");
+  await select("Chords Output", "circuit");
+  output.send.mockClear();
+  await act(async () => button("Play").click());
+  const messages = output.send.mock.calls.map((call) => call[0]);
+  expect(messages).toContainEqual([0xc0, 16]);
+  expect(messages).toContainEqual([0xc1, 127]);
+  expect(messages.findIndex((message) => message[0] === 0xc0)).toBeLessThan(messages.findIndex((message) => message[0] === 0x90));
+  await act(async () => button("Download All Tracks MIDI (Circuit Tracks)").click());
+  expect(create.mock.calls[0][4]).toEqual({ synth1: 16, synth2: 127, midi1: null, midi2: null });
 });
 
 it("reports invalid stored track sounds instead of silently restoring them", async () => {

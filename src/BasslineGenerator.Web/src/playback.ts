@@ -1,7 +1,8 @@
 import type { GenerationPackage, NoteData } from "./types";
-import { MidiInstrument } from "./midi";
+import { MidiInstrument, sendProgramChange } from "./midi";
 import { mapCircuitTracksDrumNote } from "./circuitTracksDrums";
-import { drumTrackForNote, hardwareTrackIds, hardwareTracks, type DrumTrackId, type HardwareTrackId, type MelodicTrackId } from "./hardwareTracks";
+import { drumTrackForNote, hardwareTrackIds, hardwareTracks, melodicTrackIds, type DrumTrackId, type HardwareTrackId, type MelodicTrackId } from "./hardwareTracks";
+import { defaultHardwarePatches, isHardwarePatch, type HardwarePatch } from "./hardwarePatches";
 import { browserSounds, defaultTrackSounds, type BrowserSound, type BrowserSoundId } from "./trackSounds";
 
 export type PlaybackState = "stopped" | "playing" | "paused";
@@ -74,6 +75,7 @@ export class PlaybackTransport {
   private instruments: Partial<Record<TrackId, PreviewInstrument>> = {};
   private mutedTracks = new Set<TrackId>();
   private sounds = { ...defaultTrackSounds };
+  private patches = { ...defaultHardwarePatches };
   private notes: { track: TrackId; note: NoteData }[] = [];
   private secondsPerBeat = 0;
   private duration = 0;
@@ -119,6 +121,8 @@ export class PlaybackTransport {
       throw new Error("Tracks must use different channels on the same MIDI output.");
     if (routingIds.every((id) =>
       this.routes[id].output === next[id].output && this.routes[id].channel === next[id].channel)) return;
+    const changedTracks = melodicTrackIds.filter((id) =>
+      this.routes[id].output !== next[id].output || this.routes[id].channel !== next[id].channel);
     const playing = this.state === "playing";
     if (playing) this.offset = this.position();
     this.clearScheduled();
@@ -137,6 +141,8 @@ export class PlaybackTransport {
         this.setState("paused");
         this.onError("Playback failed. Check the output devices and browser audio settings.");
       }
+    } else {
+      for (const id of changedTracks) this.trySendPatch(id);
     }
   }
 
@@ -146,9 +152,11 @@ export class PlaybackTransport {
       const route = this.routes[id];
       return this.routes.synth1.output && this.routes.synth1.output === route.output && channel === route.channel;
     })) throw new Error("Tracks must use different channels on the same MIDI output.");
+    if (this.routes.synth1.channel === channel) return;
     this.routes.synth1.channel = channel;
     const instrument = this.instruments.synth1;
     if (instrument instanceof MidiInstrument) instrument.setChannel(channel);
+    this.trySendPatch("synth1");
   }
 
   load(pkg: GenerationPackage, chordNotes: NoteData[] = [], drumNotes: NoteData[] = [],
@@ -215,6 +223,25 @@ export class PlaybackTransport {
     this.sounds[track] = sound;
     const instrument = this.instruments[track];
     if (instrument instanceof BassInstrument) instrument.setSound(sound);
+  }
+
+  setTrackPatch(track: MelodicTrackId, patch: HardwarePatch) {
+    if (!isHardwarePatch(patch)) throw new RangeError("MIDI program must be between 0 and 127.");
+    if (this.patches[track] === patch) return;
+    this.patches[track] = patch;
+    if (this.state === "playing") this.trySendPatch(track);
+  }
+
+  private sendPatch(track: MelodicTrackId) {
+    const patch = this.patches[track];
+    const { output, channel } = this.routes[track];
+    if (patch === null || !output) return;
+    sendProgramChange(output, channel, patch);
+  }
+
+  private trySendPatch(track: MelodicTrackId) {
+    try { this.sendPatch(track); }
+    catch { this.onError("MIDI program change failed. Check the output device and try again."); }
   }
 
   setVolume(volume: number) {
@@ -286,6 +313,7 @@ export class PlaybackTransport {
         : new BassInstrument(this.context, this.output, id === "drum1" ? "classic" : this.sounds[id]);
     }
     for (const id of drumTrackIds) this.instruments[id] = this.instruments.drum1;
+    for (const id of melodicTrackIds) this.sendPatch(id);
     this.startedAt = this.context.currentTime;
     this.nextNote = 0;
     this.nextCycle = 0;

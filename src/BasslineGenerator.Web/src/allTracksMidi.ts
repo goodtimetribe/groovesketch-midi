@@ -1,5 +1,6 @@
 import { mapCircuitTracksDrumNote } from "./circuitTracksDrums";
 import { hardwareTracks } from "./hardwareTracks";
+import { defaultHardwarePatches, isHardwarePatch, type HardwarePatches } from "./hardwarePatches";
 import { chunk, variableLength } from "./midiFile";
 import type { MelodicContent } from "./trackView";
 import type { NoteData } from "./types";
@@ -7,7 +8,8 @@ import type { NoteData } from "./types";
 const ticksPerQuarter = 480;
 const maxMidiTime = 0x0fffffff;
 
-export function createAllTracksMidi(tracks: MelodicContent, drums: NoteData[], bpm: number, bars: number): Blob {
+export function createAllTracksMidi(tracks: MelodicContent, drums: NoteData[], bpm: number, bars: number,
+  patches: HardwarePatches = defaultHardwarePatches): Blob {
   if (!Number.isInteger(bpm) || bpm < 1 || !Number.isInteger(bars) || bars < 1)
     throw new RangeError("The tempo and arrangement length must be positive integers.");
   const tempo = Math.round(60_000_000 / bpm);
@@ -15,10 +17,12 @@ export function createAllTracksMidi(tracks: MelodicContent, drums: NoteData[], b
   if (tempo < 1 || tempo > 0xffffff || !Number.isSafeInteger(endTick) || endTick > maxMidiTime)
     throw new RangeError("The tempo or arrangement length is outside the Standard MIDI File range.");
 
-  const makeTrack = (name: string, notes: NoteData[], channel: number) => {
+  const makeTrack = (name: string, notes: NoteData[], channel: number, patch: number | null) => {
     const nameBytes = Array.from(new TextEncoder().encode(name));
     const data = [0, 0xff, 0x03, ...variableLength(nameBytes.length), ...nameBytes];
     const events: { tick: number; order: number; bytes: number[] }[] = [];
+    if (!isHardwarePatch(patch)) throw new RangeError(`The ${name} track contains an invalid MIDI program.`);
+    if (patch !== null) events.push({ tick: 0, order: -1, bytes: [0xc0 | channel, patch] });
     let finalTick = endTick;
     for (const note of notes) {
       if (!Number.isInteger(note.midiNote) || note.midiNote < 0 || note.midiNote > 127
@@ -52,11 +56,11 @@ export function createAllTracksMidi(tracks: MelodicContent, drums: NoteData[], b
   const drumNotes = drums.map((note) => mapCircuitTracksDrumNote(note, "Circuit Tracks"));
   const file = [
     ...chunk("MThd", [0, 1, 0, 6, 1, 224]), ...conductor,
-    ...makeTrack("Synth1", tracks.synth1.notes, hardwareTracks.synth1.defaultChannel),
-    ...makeTrack("Synth2", tracks.synth2.notes, hardwareTracks.synth2.defaultChannel),
-    ...makeTrack("Midi1", tracks.midi1.notes, hardwareTracks.midi1.defaultChannel),
-    ...makeTrack("Midi2", tracks.midi2.notes, hardwareTracks.midi2.defaultChannel),
-    ...makeTrack("Drums", drumNotes, hardwareTracks.drum1.defaultChannel),
+    ...makeTrack("Synth1", tracks.synth1.notes, hardwareTracks.synth1.defaultChannel, patches.synth1),
+    ...makeTrack("Synth2", tracks.synth2.notes, hardwareTracks.synth2.defaultChannel, patches.synth2),
+    ...makeTrack("Midi1", tracks.midi1.notes, hardwareTracks.midi1.defaultChannel, patches.midi1),
+    ...makeTrack("Midi2", tracks.midi2.notes, hardwareTracks.midi2.defaultChannel, patches.midi2),
+    ...makeTrack("Drums", drumNotes, hardwareTracks.drum1.defaultChannel, null),
   ];
   return new Blob([new Uint8Array(file).buffer], { type: "audio/midi" });
 }

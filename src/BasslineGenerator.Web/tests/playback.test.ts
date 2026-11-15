@@ -75,6 +75,76 @@ afterEach(() => {
 });
 
 describe("preview transport", () => {
+  it("sends per-track programs before MIDI notes, on resume and route changes, but not on loops", async () => {
+    const output = new MidiOutputMock();
+    const device = output as unknown as MIDIOutput;
+    const transport = new PlaybackTransport(() => {});
+    const note = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 2, velocity: 100 };
+    transport.load(pkg, [], [], { synth1: [note], synth2: [note], midi1: [note], midi2: [note] });
+    transport.setTrackPatch("synth1", 0);
+    transport.setTrackPatch("midi1", 16);
+    transport.setTrackPatch("midi2", 127);
+    transport.setTrackRoutings({
+      synth1: { output: device, channel: 0 }, synth2: { output: device, channel: 1 },
+      midi1: { output: device, channel: 2 }, midi2: { output: device, channel: 3 },
+    });
+    expect(output.send.mock.calls.map((call) => call[0])).toEqual([[0xc0, 0], [0xc2, 16], [0xc3, 127]]);
+    output.send.mockClear();
+    transport.setLoop(true);
+    await transport.play();
+    const messages = () => output.send.mock.calls.map((call) => call[0]);
+    for (const [program, noteOn] of [[[0xc0, 0], [0x90, 60, 100]], [[0xc2, 16], [0x92, 60, 100]], [[0xc3, 127], [0x93, 60, 100]]]) {
+      expect(messages().findIndex((message) => message[0] === program[0])).toBeLessThan(messages().findIndex((message) => message[0] === noteOn[0]));
+      expect(messages()).toContainEqual(program);
+    }
+    expect(messages().some((message) => message[0] === 0xc1 || message[0] === 0xc9)).toBe(false);
+    AudioContextMock.instance.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    expect(messages().filter((message) => (message[0] & 0xf0) === 0xc0)).toHaveLength(3);
+
+    transport.setTrackPatch("midi1", 41);
+    expect(messages()).toContainEqual([0xc2, 41]);
+    const count = messages().length;
+    transport.setTrackPatch("midi1", null);
+    expect(messages()).toHaveLength(count);
+    transport.pause();
+    output.send.mockClear();
+    await transport.play();
+    expect(messages()).toContainEqual([0xc0, 0]);
+    expect(messages()).toContainEqual([0xc3, 127]);
+    expect(messages().some((message) => message[0] === 0xc2)).toBe(false);
+
+    const newOutput = new MidiOutputMock();
+    output.send.mockClear();
+    transport.setTrackRoutings({
+      synth1: { output: device, channel: 0 }, synth2: { output: device, channel: 1 },
+      midi1: { output: device, channel: 2 }, midi2: { output: newOutput as unknown as MIDIOutput, channel: 5 },
+    });
+    expect(newOutput.send.mock.calls[0][0]).toEqual([0xc5, 127]);
+    expect(newOutput.send.mock.calls.some((call) => call[0][0] === 0x95)).toBe(true);
+    transport.dispose();
+  });
+
+  it("reports program errors and leaves browser sound selection independent", async () => {
+    const output = new MidiOutputMock();
+    const error = vi.fn();
+    const transport = new PlaybackTransport(() => {}, error);
+    transport.load(pkg);
+    transport.setTrackSound("synth1", "squareLead");
+    transport.setTrackPatch("synth1", 16);
+    await transport.play();
+    expect(AudioContextMock.instance.oscillators[0].type).toBe("square");
+    transport.pause();
+    output.send.mockImplementation(() => { throw new Error("device error"); });
+    transport.setTrackRoutings({
+      synth1: { output: output as unknown as MIDIOutput, channel: 0 }, synth2: { output: null, channel: 1 },
+    });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("program change failed"));
+    await expect(transport.play()).rejects.toThrow("device error");
+    expect(transport.state).toBe("stopped");
+    transport.dispose();
+  });
+
   it("uses each melodic track's browser sound while leaving drums on the classic voice", async () => {
     const transport = new PlaybackTransport(() => {});
     const note = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 2, velocity: 100 };
