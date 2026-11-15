@@ -3,9 +3,9 @@ import type { PlaybackState, PlaybackTransport } from "./playback";
 import { createTracks, tracksForRendering } from "./trackView";
 import type { GenerationPackage, NoteData } from "./types";
 
-interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[] }
+interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[] }
 
-export default function PianoRoll({ pkg, transport, playbackState, chordNotes }: Props) {
+export default function PianoRoll({ pkg, transport, playbackState, chordNotes, drumNotes }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
   const [startBar, setStartBar] = useState(0);
@@ -13,7 +13,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes }:
   const [selected, setSelected] = useState<{ trackId: string; note: NoteData } | null>(null);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [focus, setFocus] = useState("bass");
-  const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility), [pkg, chordNotes, visibility]);
+  const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility, drumNotes), [pkg, chordNotes, visibility, drumNotes]);
   const rendering = useMemo(() => tracksForRendering(tracks, focus), [tracks, focus]);
   const notes = useMemo(() => rendering.flatMap(({ track }) => track.notes), [rendering]);
   const sections = pkg.effectiveConfiguration.sections;

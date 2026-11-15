@@ -8,7 +8,8 @@ import Preview from "../src/Preview";
 import type { GenerationPackage } from "../src/types";
 
 vi.mock("../src/PianoRoll", () => ({
-  default: ({ chordNotes }: { chordNotes: unknown[] }) => <div data-testid="chord-count">{chordNotes.length}</div>,
+  default: ({ chordNotes, drumNotes }: { chordNotes: unknown[]; drumNotes: unknown[] }) =>
+    <><div data-testid="chord-count">{chordNotes.length}</div><div data-testid="drum-count">{drumNotes.length}</div></>,
 }));
 
 const pkg: GenerationPackage = {
@@ -62,6 +63,34 @@ beforeEach(() => {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
+});
+
+it("plays a selected drum pattern on channel 10, updates it during playback, and checks routing collisions", async () => {
+  vi.stubGlobal("AudioContext", class {
+    currentTime = 0;
+    destination = {};
+    createGain() { return { gain: { value: 0, setValueAtTime() {} }, connect() {} }; }
+    resume() { return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  });
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  await act(async () => button("Refresh Devices").click());
+  await select("Bass Output", "circuit");
+  await select("Chords Output", "circuit");
+  await select("Drums Output", "circuit");
+  await select("Drum pattern", "four-on-the-floor");
+  expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
+  await act(async () => button("Play").click());
+  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x99, 36, 110]);
+  await select("Drum pattern", "half-time");
+  expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("2");
+  expect(output.clear).toHaveBeenCalled();
+  expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99 && call[0][1] === 36)).toHaveLength(2);
+  await act(async () => button("Pause").click());
+  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x89, 36, 0]);
+  await select("Drums MIDI Channel", "0");
+  expect(button("Play").disabled).toBe(true);
+  expect(container.textContent).toContain("must use different channels");
 });
 
 afterEach(async () => {

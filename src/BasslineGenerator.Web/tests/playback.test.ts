@@ -74,6 +74,26 @@ afterEach(() => {
 });
 
 describe("preview transport", () => {
+  it("loops drums on channel 10 with the other tracks and silences them on pause", async () => {
+    const output = new MidiOutputMock();
+    const device = output as unknown as MIDIOutput;
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [], [{ note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 }]);
+    transport.setTrackRoutings({
+      bass: { output: device, channel: 0 }, chords: { output: device, channel: 1 }, drums: { output: device, channel: 9 },
+    });
+    transport.setLoop(true);
+    await transport.play();
+    expect(output.send).toHaveBeenCalledWith([0x99, 36, 110], 0);
+    AudioContextMock.instance.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99)).toHaveLength(2);
+    transport.pause();
+    expect(output.clear).toHaveBeenCalledOnce();
+    expect(output.send).toHaveBeenCalledWith([0x89, 36, 0]);
+    transport.dispose();
+  });
+
   it("schedules both tracks on separate channels of one MIDI output and clears its queue once", async () => {
     const output = new MidiOutputMock();
     const device = output as unknown as MIDIOutput;

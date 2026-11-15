@@ -77,7 +77,12 @@ read-only piano roll, previews the generated notes, downloads MIDI, and supports
 local JSON package files and share codes. The preview uses a lightweight Web
 Audio synthesizer by default; it may sound different from a DAW. Play,
 pause, stop, restart, and loop control the preview, and synth volume is remembered for
-the current browser session. Preview plays bass and chords on a shared transport.
+the current browser session. Preview plays bass, chords, and an optional built-in
+drum pattern on a shared transport. Select a pattern to add the drum track; it
+repeats from the start of each section and is truncated at section boundaries.
+Drums use the browser's pitched preview synth by default, not a drum kit. Route
+them to a MIDI drum instrument for percussion. Patterns are preview-only and are
+not included in saved packages, share codes, or MIDI exports.
 Chord notes must load before playback; retry if loading fails. Choose **Download
 Bass MIDI** for bass alone or **Download Bass + Chords MIDI** for a Type 1 MIDI
 file with separate bass and sustained chord tracks.
@@ -96,11 +101,12 @@ Change the bass channel and regenerate, or route the tracks separately in your D
 
 To play through a MIDI device or virtual port, connect it, select **Refresh
 Devices**, grant browser MIDI permission, and choose it under **Bass Output** or
-**Chords Output**.
+**Chords Output** or **Drums Output**.
 Web MIDI requires a compatible browser and a secure context (HTTPS or
 localhost). Select each track's **MIDI Channel** (1-16) to match the receiving
-device or DAW; routing does not change generation or exported MIDI. Tracks using
-the same MIDI output must use different channels. Routing changes reschedule both
+device or DAW; drums default to channel 10 (MIDI notes are sent unchanged).
+Routing does not change generation or exported MIDI. Tracks using
+the same MIDI output must use different channels. Routing changes reschedule all
 tracks at the same playback position. The synth volume control does not affect MIDI velocity.
 Disconnecting a selected device pauses playback at its current position; reconnect
 and refresh, or select another output, before resuming.
@@ -109,8 +115,8 @@ Use **Profile** to recall local playback routing. Select a profile, adjust its
 track outputs or channels, and choose **Update Profile** to keep the changes; enter a
 new name and choose **Save Profile** to create another. Profiles and the active
 selection are stored in browser local storage, not in packages, exports, or share
-codes. Existing profiles keep their bass routing and default chords to browser
-synth. Circuit Tracks presets automatically match a single connected output
+codes. Existing profiles keep their bass and chord routing and default drums to
+browser synth on channel 10. Circuit Tracks presets automatically match a single connected output
 whose name contains "Circuit Tracks"; if no unique match is found, select the
 device explicitly and update the profile. External MIDI channel presets likewise
 need an output selected. MIDI permission and a connected device are still

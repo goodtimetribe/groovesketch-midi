@@ -8,10 +8,11 @@ export interface TrackViewModel {
   notes: NoteData[];
 }
 
-export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>): TrackViewModel[] {
+export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[]): TrackViewModel[] {
   return [
     { id: "bass", name: "Bass", role: "bass", visible: visibility.bass ?? true, notes: pkg.notes ?? [] },
     { id: "chords", name: "Chords", role: "chords", visible: visibility.chords ?? true, notes: chordNotes },
+    ...(drumNotes ? [{ id: "drums", name: "Drums", role: "drums", visible: visibility.drums ?? true, notes: drumNotes }] : []),
   ];
 }
 
