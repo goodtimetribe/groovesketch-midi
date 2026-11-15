@@ -1,10 +1,12 @@
 import type { GenerationPackage, NoteData } from "./types";
 import { MidiInstrument } from "./midi";
 import { mapCircuitTracksDrumNote } from "./circuitTracksDrums";
+import { drumTrackForNote, hardwareTrackIds, hardwareTracks, type DrumTrackId, type HardwareTrackId } from "./hardwareTracks";
 
 export type PlaybackState = "stopped" | "playing" | "paused";
-export type TrackId = "bass" | "chords" | "drums";
-const trackIds: TrackId[] = ["bass", "chords", "drums"];
+type TrackId = HardwareTrackId;
+const drumTrackIds: DrumTrackId[] = ["drum1", "drum2", "drum3", "drum4"];
+const routingIds = ["synth1", "synth2", "drum1"] as const;
 export interface TrackRouting { output: MIDIOutput | null; channel: number }
 
 // The transport owns timing; the instrument only needs a note and an audio time.
@@ -69,35 +71,46 @@ export class PlaybackTransport {
   private revision = 0;
   private volume = 75;
   private routes: Record<TrackId, TrackRouting> = {
-    bass: { output: null, channel: 0 }, chords: { output: null, channel: 1 }, drums: { output: null, channel: 9 },
+    synth1: { output: null, channel: hardwareTracks.synth1.defaultChannel },
+    synth2: { output: null, channel: hardwareTracks.synth2.defaultChannel },
+    midi1: { output: null, channel: hardwareTracks.midi1.defaultChannel },
+    midi2: { output: null, channel: hardwareTracks.midi2.defaultChannel },
+    drum1: { output: null, channel: hardwareTracks.drum1.defaultChannel },
+    drum2: { output: null, channel: hardwareTracks.drum2.defaultChannel },
+    drum3: { output: null, channel: hardwareTracks.drum3.defaultChannel },
+    drum4: { output: null, channel: hardwareTracks.drum4.defaultChannel },
   };
   state: PlaybackState = "stopped";
 
   constructor(private onStateChange: (state: PlaybackState) => void, private onError: (message: string) => void = () => {}) {}
 
   setDestination(output: MIDIOutput | null) {
-    this.setRouting(output, this.routes.bass.channel);
+    this.setRouting(output, this.routes.synth1.channel);
   }
 
   setRouting(output: MIDIOutput | null, channel: number) {
-    this.setTrackRoutings({ ...this.routes, bass: { output, channel } });
+    this.setTrackRoutings({ ...this.routes, synth1: { output, channel } });
   }
 
-  setTrackRoutings(routes: Record<"bass" | "chords", TrackRouting> & { drums?: TrackRouting }) {
-    const next = { ...routes, drums: routes.drums ?? this.routes.drums };
+  setTrackRoutings(routes: Record<"synth1" | "synth2", TrackRouting> & { drum1?: TrackRouting }) {
+    const next = { synth1: routes.synth1, synth2: routes.synth2, drum1: routes.drum1 ?? this.routes.drum1 };
     for (const route of Object.values(next)) {
       if (!Number.isInteger(route.channel) || route.channel < 0 || route.channel > 15)
         throw new RangeError("MIDI channel must be between 0 and 15.");
     }
-    if (trackIds.some((id, i) => trackIds.slice(i + 1).some((other) =>
+    if (routingIds.some((id, i) => routingIds.slice(i + 1).some((other) =>
       next[id].output && next[id].output === next[other].output && next[id].channel === next[other].channel)))
       throw new Error("Tracks must use different channels on the same MIDI output.");
-    if (trackIds.every((id) =>
+    if (routingIds.every((id) =>
       this.routes[id].output === next[id].output && this.routes[id].channel === next[id].channel)) return;
     const playing = this.state === "playing";
     if (playing) this.offset = this.position();
     this.clearScheduled();
-    this.routes = { bass: { ...next.bass }, chords: { ...next.chords }, drums: { ...next.drums } };
+    this.routes = {
+      ...this.routes,
+      synth1: { ...next.synth1 }, synth2: { ...next.synth2 },
+      drum1: { ...next.drum1 }, drum2: { ...next.drum1 }, drum3: { ...next.drum1 }, drum4: { ...next.drum1 },
+    };
     this.instruments = {};
     if (playing && this.context) {
       try {
@@ -112,21 +125,21 @@ export class PlaybackTransport {
 
   setMidiChannel(channel: number) {
     if (!Number.isInteger(channel) || channel < 0 || channel > 15) throw new RangeError("MIDI channel must be between 0 and 15.");
-    if ((["chords", "drums"] as const).some((id) => {
+    if ((["synth2", "drum1"] as const).some((id) => {
       const route = this.routes[id];
-      return this.routes.bass.output && this.routes.bass.output === route.output && channel === route.channel;
+      return this.routes.synth1.output && this.routes.synth1.output === route.output && channel === route.channel;
     })) throw new Error("Tracks must use different channels on the same MIDI output.");
-    this.routes.bass.channel = channel;
-    const instrument = this.instruments.bass;
+    this.routes.synth1.channel = channel;
+    const instrument = this.instruments.synth1;
     if (instrument instanceof MidiInstrument) instrument.setChannel(channel);
   }
 
   load(pkg: GenerationPackage, chordNotes: NoteData[] = [], drumNotes: NoteData[] = []) {
     this.stop();
     this.notes = [
-      ...(pkg.notes ?? []).map((note) => ({ track: "bass" as const, note })),
-      ...chordNotes.map((note) => ({ track: "chords" as const, note })),
-      ...drumNotes.map((note) => ({ track: "drums" as const, note })),
+      ...(pkg.notes ?? []).map((note) => ({ track: "synth1" as const, note })),
+      ...chordNotes.map((note) => ({ track: "synth2" as const, note })),
+      ...drumNotes.map((note) => ({ track: drumTrackForNote(note.midiNote), note })),
     ].sort((a, b) => a.note.startBeat - b.note.startBeat);
     this.secondsPerBeat = 60 / pkg.effectiveConfiguration.bpm;
     const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
@@ -139,8 +152,8 @@ export class PlaybackTransport {
     if (playing) this.offset = this.position();
     this.clearScheduled();
     this.notes = [
-      ...this.notes.filter(({ track }) => track !== "drums"),
-      ...drumNotes.map((note) => ({ track: "drums" as const, note })),
+      ...this.notes.filter(({ track }) => !drumTrackIds.some((id) => id === track)),
+      ...drumNotes.map((note) => ({ track: drumTrackForNote(note.midiNote), note })),
     ].sort((a, b) => a.note.startBeat - b.note.startBeat);
     if (playing && this.context) {
       try {
@@ -215,12 +228,17 @@ export class PlaybackTransport {
     if (Object.values(this.routes).some(({ output }) => output && output.state !== "connected"))
       throw new Error("MIDI output disconnected.");
     this.instruments = {};
-    for (const id of trackIds) {
+    const activeTracks = new Set<HardwareTrackId>([
+      ...routingIds,
+      ...this.notes.map(({ track }) => track).filter((track) => !drumTrackIds.some((id) => id === track)),
+    ]);
+    for (const id of activeTracks) {
       const { output, channel } = this.routes[id];
       this.instruments[id] = output
         ? new MidiInstrument(output, this.context, channel)
         : new BassInstrument(this.context, this.output);
     }
+    for (const id of drumTrackIds) this.instruments[id] = this.instruments.drum1;
     this.startedAt = this.context.currentTime;
     this.nextNote = 0;
     this.nextCycle = 0;
@@ -265,7 +283,7 @@ export class PlaybackTransport {
     ++this.revision;
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
-    const outputs = new Set(trackIds
+    const outputs = new Set(hardwareTrackIds
       .filter((id) => this.instruments[id] instanceof MidiInstrument)
       .map((id) => this.routes[id].output)
       .filter((output): output is MIDIOutput => output !== null));
@@ -273,7 +291,7 @@ export class PlaybackTransport {
       try { output.clear(); }
       catch { this.onError("MIDI output could not be cleared. Check the device connection."); }
     }
-    for (const instrument of Object.values(this.instruments)) {
+    for (const instrument of new Set(Object.values(this.instruments))) {
       try {
         if (instrument instanceof MidiInstrument) instrument.silence(false);
         else instrument.silence();
@@ -332,6 +350,6 @@ export class PlaybackTransport {
   }
 
   private playbackNote(track: TrackId, note: NoteData): NoteData {
-    return track === "drums" ? mapCircuitTracksDrumNote(note, this.routes.drums.output?.name) : note;
+    return drumTrackIds.some((id) => id === track) ? mapCircuitTracksDrumNote(note, this.routes[track].output?.name) : note;
   }
 }

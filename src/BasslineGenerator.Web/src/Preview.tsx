@@ -3,6 +3,7 @@ import PianoRoll from "./PianoRoll";
 import { api, download } from "./api";
 import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
 import { arrangeDrums, drumPatterns } from "./drumPatterns";
+import { hardwareTracks } from "./hardwareTracks";
 import { MidiDevices } from "./midi";
 import { PlaybackTransport, type PlaybackState } from "./playback";
 import { readChordNotes } from "./trackView";
@@ -24,7 +25,7 @@ function initialProfiles() {
     if (localStorage.getItem(routingProfilesKey) === null) {
       try {
         const saved = sessionStorage.getItem(channelKey);
-        const channel = saved === null ? 0 : Number(saved);
+        const channel = saved === null ? hardwareTracks.synth1.defaultChannel : Number(saved);
         if (saved !== "" && Number.isInteger(channel) && channel >= 0 && channel <= 15)
           data.profiles[0].routing.channel = channel;
       } catch { channelError = true; }
@@ -138,9 +139,9 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
       return;
     }
     transport.setTrackRoutings({
-      bass: { output, channel: routing.channel },
-      chords: { output: chordOutput, channel: chordRouting.channel },
-      drums: { output: drumOutput, channel: drumRouting.channel },
+      synth1: { output, channel: routing.channel },
+      synth2: { output: chordOutput, channel: chordRouting.channel },
+      drum1: { output: drumOutput, channel: drumRouting.channel },
     });
   }, [transport, output, chordOutput, drumOutput, routing.channel, chordRouting.channel, drumRouting.channel, unavailable, chordUnavailable, drumUnavailable, collision]);
 

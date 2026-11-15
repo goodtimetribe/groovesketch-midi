@@ -1,3 +1,5 @@
+import { hardwareTracks } from "./hardwareTracks";
+
 export type RoutingDestination =
   | { kind: "browser" }
   | { kind: "midi"; deviceId: string | null; deviceName: string | null; nameContains?: string };
@@ -24,9 +26,9 @@ export interface RoutingProfiles {
 
 export const routingProfilesKey = "bassline-routing-profiles";
 
-const browser = (): Routing => ({ destination: { kind: "browser" }, channel: 0, instrument: "bass" });
-const chordBrowser = (): Routing => ({ ...browser(), channel: 1 });
-const drumBrowser = (): Routing => ({ ...browser(), channel: 9 });
+const browser = (): Routing => ({ destination: { kind: "browser" }, channel: hardwareTracks.synth1.defaultChannel, instrument: "bass" });
+const chordBrowser = (): Routing => ({ ...browser(), channel: hardwareTracks.synth2.defaultChannel });
+const drumBrowser = (): Routing => ({ ...browser(), channel: hardwareTracks.drum1.defaultChannel });
 const midi = (channel: number, nameContains?: string): Routing => ({
   destination: { kind: "midi", deviceId: null, deviceName: null, ...(nameContains ? { nameContains } : {}) },
   channel, instrument: "bass",

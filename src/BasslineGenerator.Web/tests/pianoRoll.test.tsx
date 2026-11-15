@@ -34,10 +34,13 @@ function midi(chordEvents: number[] = [0, 0x91, 60, 90, 0x83, 0x60, 0x81, 60, 0]
 describe("track view", () => {
   it("creates presentation tracks and handles arbitrary roles, visibility, and focus", () => {
     const tracks = createTracks(pkg, [chord], {});
-    expect(tracks.map(({ id, role, visible }) => ({ id, role, visible }))).toEqual([
+    expect(tracks.map((track) => ({ id: track.id, role: track.kind === "track" ? track.role : null, visible: track.visible }))).toEqual([
       { id: "bass", role: "bass", visible: true }, { id: "chords", role: "chords", visible: true },
     ]);
-    const future: TrackViewModel = { id: "lead", name: "Lead", role: "lead", visible: true, notes: [bass], color: [73, 158, 255], indicator: "rgb(73, 158, 255)" };
+    const future: TrackViewModel = { id: "lead", name: "Lead", kind: "track", hardwareTrackId: "midi1", role: "lead", visible: true, notes: [bass], indicator: "rgb(73, 158, 255)" };
+    expect(trackNoteColor(future, bass)).toEqual([73, 158, 255]);
+    expect(trackNoteColor({ ...future, role: "strings" }, bass)).toEqual([73, 158, 255]);
+    expect(trackNoteColor({ ...future, hardwareTrackId: "synth1" }, bass)).toEqual([230, 72, 152]);
     expect(tracksForRendering([...tracks, future], "chords").map(({ track, ghost }) => [track.id, ghost]))
       .toEqual([["bass", true], ["lead", true], ["chords", false]]);
     expect(tracksForRendering(createTracks(pkg, [chord], { chords: false }), "bass").map(({ track, ghost }) => [track.id, ghost]))
@@ -142,6 +145,7 @@ describe("piano roll", () => {
     await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped" chordNotes={[chord]} drumNotes={[drum]} />));
     expect(container.textContent).toContain("Visible notes (3)");
     expect(container.textContent).toContain("D2 (38)");
+    expect(fills).toContain(`rgba(255, 210, 66, ${(0.35 + 100 / 127 * 0.65) * 0.35})`);
     await changeSelect("Focus", "drums");
     expect(fills.at(-1)).toBe(`rgba(255, 210, 66, ${0.35 + 100 / 127 * 0.65})`);
     expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 36 })).toEqual([255, 139, 61]);
