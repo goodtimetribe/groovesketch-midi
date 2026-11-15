@@ -1,5 +1,8 @@
 import type { GenerationPackage, NoteData } from "./types";
-import { defaultRoleAssignments, drumTrackForNote, hardwareTracks, type HardwareTrackId, type MusicalRole, type RgbColor } from "./hardwareTracks";
+import { defaultRoleAssignments, drumTrackForNote, hardwareTracks, melodicTrackIds, type HardwareTrackId, type MelodicTrackId, type MusicalRole, type RgbColor } from "./hardwareTracks";
+
+export type TrackContent = { role: "bass" | "chords" | null; notes: NoteData[] };
+export type MelodicContent = Record<MelodicTrackId, TrackContent>;
 
 export type TrackViewModel = {
   id: string;
@@ -12,7 +15,16 @@ export type TrackViewModel = {
 
 const drumIndicator = `linear-gradient(to bottom, rgb(${hardwareTracks.drum1.color.join(", ")}) 0 25%, rgb(${hardwareTracks.drum2.color.join(", ")}) 25% 50%, rgb(${hardwareTracks.drum3.color.join(", ")}) 50% 75%, rgb(${hardwareTracks.drum4.color.join(", ")}) 75% 100%)`;
 
-export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[]): TrackViewModel[] {
+export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[], content?: MelodicContent): TrackViewModel[] {
+  if (content) return [
+    ...melodicTrackIds.map((id): TrackViewModel => ({
+      id, name: `${id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : "Midi2"}${content[id].role ? ` · ${content[id].role === "bass" ? "Bass" : "Chords"}` : ""}`,
+      kind: "track", hardwareTrackId: id, role: content[id].role ?? "custom",
+      visible: visibility[id] ?? true, notes: content[id].notes, indicator: `rgb(${hardwareTracks[id].color.join(", ")})`,
+    })),
+    { id: "drums", name: "Drums", kind: "drumGroup", visible: visibility.drums ?? true,
+      notes: drumNotes ?? [], indicator: drumIndicator },
+  ];
   return [
     { id: "bass", name: "Bass", kind: "track", hardwareTrackId: "synth1", role: defaultRoleAssignments.synth1, visible: visibility.bass ?? true, notes: pkg.notes ?? [], indicator: `rgb(${hardwareTracks.synth1.color.join(", ")})` },
     { id: "chords", name: "Chords", kind: "track", hardwareTrackId: "synth2", role: defaultRoleAssignments.synth2, visible: visibility.chords ?? true, notes: chordNotes, indicator: `rgb(${hardwareTracks.synth2.color.join(", ")})` },

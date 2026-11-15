@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlaybackState, PlaybackTransport } from "./playback";
-import { createTracks, rgba, trackNoteColor, tracksForRendering } from "./trackView";
+import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent } from "./trackView";
+import type { MelodicTrackId } from "./hardwareTracks";
 import type { GenerationPackage, NoteData } from "./types";
 
-interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[] }
+export type GeneratorType = "bass" | "chords" | "drums";
+export type FocusTrack = MelodicTrackId | "drums";
+interface Props {
+  pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[];
+  workflow?: { content: MelodicContent; busy: boolean; disabled: boolean; patternSelected: boolean;
+    generate: (track: FocusTrack, generator: GeneratorType) => void };
+}
 
-export default function PianoRoll({ pkg, transport, playbackState, chordNotes, drumNotes }: Props) {
+export default function PianoRoll({ pkg, transport, playbackState, chordNotes, drumNotes, workflow }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
   const [startBar, setStartBar] = useState(0);
   const [barsVisible, setBarsVisible] = useState(8);
   const [selected, setSelected] = useState<{ trackId: string; note: NoteData } | null>(null);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
-  const [focus, setFocus] = useState("bass");
-  const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility, drumNotes), [pkg, chordNotes, visibility, drumNotes]);
+  const [focus, setFocus] = useState(workflow ? "synth1" : "bass");
+  const [generator, setGenerator] = useState<GeneratorType>("bass");
+  const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility, drumNotes, workflow?.content), [pkg, chordNotes, visibility, drumNotes, workflow?.content]);
   const rendering = useMemo(() => tracksForRendering(tracks, focus), [tracks, focus]);
   const notes = useMemo(() => rendering.flatMap(({ track }) => track.notes), [rendering]);
   const sections = pkg.effectiveConfiguration.sections;
@@ -95,7 +103,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
   const visibleNotes = rendering.flatMap(({ track }) => track.notes
     .filter((n) => n.startBeat + n.durationBeats > start * 4 && n.startBeat < (start + barsVisible) * 4)
     .map((note) => ({ track, note })));
-  const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible);
+  const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible && track.notes.includes(selected.note));
   return <section className="roll">
     <div className="section-title"><div><p className="eyebrow">NOTE VIEW</p><h2>Piano roll</h2></div>
       <div className="inline"><label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
@@ -110,9 +118,29 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
           <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" /> {track.name}
         </label>)}
       </fieldset>
-      <label>Focus <select value={focus} onChange={(event) => setFocus(event.target.value)}>
+      <label>Focus <select value={focus} onChange={(event) => {
+        const next = event.target.value;
+        setFocus(next);
+        if (workflow) setGenerator(next === "drums" ? "drums" : workflow.content[next as MelodicTrackId].role ?? "bass");
+      }}>
         {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
       </select></label>
+      {workflow && <>
+        <label>Generator <select value={generator} onChange={(event) => {
+          const value = event.target.value;
+          if (value === "drums" && focus === "drums") setGenerator(value);
+          else if ((value === "bass" || value === "chords") && focus !== "drums") setGenerator(value);
+        }}>
+          <option value="bass" disabled={focus === "drums"}>Bass</option>
+          <option value="chords" disabled={focus === "drums"}>Chords</option>
+          <option value="drums" disabled={focus !== "drums"}>Drums</option>
+          <option value="melody" disabled>Melody (Coming Soon)</option>
+        </select></label>
+        <button type="button" disabled={workflow.busy || workflow.disabled || (generator === "drums" && !workflow.patternSelected)}
+          onClick={() => workflow.generate(focus as FocusTrack, generator)}>
+          {generator === "drums" ? "Apply Pattern" : generator === "bass" ? "Generate Bass" : "Generate Chords"}
+        </button>
+      </>}
     </div>
     <div className="sections" aria-label="Arrangement sections">
       {sections.map((section, index) => {
