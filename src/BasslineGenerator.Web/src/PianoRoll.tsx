@@ -1,16 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "./api";
 import type { PlaybackState, PlaybackTransport } from "./playback";
+import { createTracks, readChordNotes, tracksForRendering } from "./trackView";
 import type { GenerationPackage, NoteData } from "./types";
 
 interface Props { pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState }
+
+const noNotes: NoteData[] = [];
 
 export default function PianoRoll({ pkg, transport, playbackState }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
   const [startBar, setStartBar] = useState(0);
   const [barsVisible, setBarsVisible] = useState(8);
-  const [selected, setSelected] = useState<NoteData | null>(null);
-  const notes = pkg.notes ?? [];
+  const [selected, setSelected] = useState<{ trackId: string; note: NoteData } | null>(null);
+  const [visibility, setVisibility] = useState<Record<string, boolean>>({});
+  const [focus, setFocus] = useState("bass");
+  const [retry, setRetry] = useState(0);
+  const [chords, setChords] = useState<{ pkg: GenerationPackage; notes: NoteData[]; error: string } | null>(null);
+  const chordNotes = chords?.pkg === pkg ? chords.notes : noNotes;
+  const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility), [pkg, chordNotes, visibility]);
+  const rendering = useMemo(() => tracksForRendering(tracks, focus), [tracks, focus]);
+  const notes = useMemo(() => rendering.flatMap(({ track }) => track.notes), [rendering]);
   const sections = pkg.effectiveConfiguration.sections;
   const totalBars = sections.reduce((total, section) => total + section.bars, 0);
   const maxStart = Math.max(0, totalBars - barsVisible);
@@ -19,6 +30,15 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
   const high = notes.length ? Math.min(127, notes.reduce((a, n) => Math.max(a, n.midiNote), 0) + 1) : 48;
 
   useEffect(() => { setStartBar(0); setSelected(null); }, [pkg]);
+  useEffect(() => {
+    let cancelled = false;
+    setChords(null);
+    void api.combinedMidi(pkg).then((blob) => blob.arrayBuffer()).then(readChordNotes).then(
+      (notes) => { if (!cancelled) setChords({ pkg, notes, error: "" }); },
+      (error: unknown) => { if (!cancelled) setChords({ pkg, notes: [], error: error instanceof Error ? error.message : "Chord notes could not be loaded." }); },
+    );
+    return () => { cancelled = true; };
+  }, [pkg, retry]);
   useEffect(() => {
     if (playbackState === "stopped") setStartBar(0);
   }, [playbackState]);
@@ -71,13 +91,13 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
         ctx.fillStyle = "#c0cad8";
         if (start + bar < totalBars) ctx.fillText(`${start + bar + 1}`, x + 3, 17);
       }
-      for (const note of notes) {
+      for (const { track, ghost } of rendering) for (const note of track.notes) {
         const beat = note.startBeat - start * 4;
         if (beat + note.durationBeats <= 0 || beat >= barsVisible * 4) continue;
         const x = axis + Math.max(0, beat) / (barsVisible * 4) * gridWidth;
         const end = axis + Math.min(barsVisible * 4, beat + note.durationBeats) / (barsVisible * 4) * gridWidth;
         const y = top + (high - note.midiNote) * rowHeight;
-        ctx.fillStyle = `rgba(82, 222, 181, ${0.35 + note.velocity / 127 * 0.65})`;
+        ctx.fillStyle = `rgba(82, 222, 181, ${(0.35 + note.velocity / 127 * 0.65) * (ghost ? 0.35 : 1)})`;
         ctx.fillRect(x, y + 1, Math.max(1, end - x), Math.max(1, rowHeight - 2));
       }
     };
@@ -85,15 +105,32 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
     observer.observe(element);
     draw();
     return () => observer.disconnect();
-  }, [notes, low, high, start, barsVisible, totalBars]);
+  }, [rendering, low, high, start, barsVisible, totalBars]);
 
-  const visibleNotes = notes.filter((n) => n.startBeat + n.durationBeats > start * 4 && n.startBeat < (start + barsVisible) * 4);
+  const visibleNotes = rendering.flatMap(({ track }) => track.notes
+    .filter((n) => n.startBeat + n.durationBeats > start * 4 && n.startBeat < (start + barsVisible) * 4)
+    .map((note) => ({ track, note })));
+  const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible);
   return <section className="roll">
     <div className="section-title"><div><p className="eyebrow">NOTE VIEW</p><h2>Piano roll</h2></div>
       <div className="inline"><label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
         {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}
       </select></label></div>
     </div>
+    <div className="track-controls">
+      <fieldset><legend>Tracks</legend>
+        {tracks.map((track) => <label className="check" key={track.id}>
+          <input type="checkbox" checked={track.visible} onChange={(event) =>
+            setVisibility((old) => ({ ...old, [track.id]: event.target.checked }))} /> {track.name}
+        </label>)}
+      </fieldset>
+      <label>Focus <select value={focus} onChange={(event) => setFocus(event.target.value)}>
+        {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+      </select></label>
+    </div>
+    {chords?.pkg === pkg && chords.error
+      ? <p className="error" role="alert">Chord notes could not be displayed: {chords.error} <button type="button" onClick={() => setRetry((value) => value + 1)}>Retry</button></p>
+      : chords?.pkg !== pkg && <p className="hint" role="status">Loading chord notes…</p>}
     <div className="sections" aria-label="Arrangement sections">
       {sections.map((section, index) => {
         const bar = sections.slice(0, index).reduce((sum, s) => sum + s.bars, 0);
@@ -113,14 +150,15 @@ export default function PianoRoll({ pkg, transport, playbackState }: Props) {
       <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
       <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
     </div>
-    <p className="hint">Notes are read-only. Brighter notes have higher velocity. The preview instrument may sound different from your DAW.</p>
+    <p className="hint">Notes are read-only. Unfocused tracks are ghosted; brighter notes have higher velocity. Visibility does not affect playback or export. The preview instrument may sound different from your DAW.</p>
     <details><summary>Visible notes ({visibleNotes.length})</summary>
-      <div className="note-list"><table><thead><tr><th>Note</th><th>Start beat</th><th>Length</th><th>Velocity</th></tr></thead>
-        <tbody>{visibleNotes.map((n, i) => <tr key={i} onClick={() => setSelected(n)}>
-          <td><button className="text-button" type="button" onClick={() => setSelected(n)}>{n.note} ({n.midiNote})</button></td>
-          <td>{n.startBeat.toFixed(2)}</td><td>{n.durationBeats.toFixed(2)}</td><td>{n.velocity}</td>
+      <div className="note-list"><table><thead><tr><th>Track</th><th>Note</th><th>Start beat</th><th>Length</th><th>Velocity</th></tr></thead>
+        <tbody>{visibleNotes.map(({ track, note }, i) => <tr key={`${track.id}-${i}`} onClick={() => setSelected({ trackId: track.id, note })}>
+          <td>{track.name}</td>
+          <td><button className="text-button" type="button" onClick={() => setSelected({ trackId: track.id, note })}>{note.note} ({note.midiNote})</button></td>
+          <td>{note.startBeat.toFixed(2)}</td><td>{note.durationBeats.toFixed(2)}</td><td>{note.velocity}</td>
         </tr>)}</tbody></table></div>
-      {selected && <p>Selected: {selected.note}, beat {selected.startBeat}, length {selected.durationBeats}, velocity {selected.velocity}.</p>}
+      {selectedVisible && selected && <p>Selected: {selected.note.note}, beat {selected.note.startBeat}, length {selected.note.durationBeats}, velocity {selected.note.velocity}.</p>}
     </details>
   </section>;
 }
