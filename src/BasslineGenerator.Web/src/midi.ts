@@ -61,8 +61,8 @@ export class MidiInstrument implements PreviewInstrument {
     this.output.send([0x80 | channel, note.midiNote, 0], timestamp + duration * 1000);
   }
 
-  silence() {
-    this.output.clear();
+  silence(clearQueue = true) {
+    if (clearQueue) this.output.clear();
     for (const [channel, pitches] of this.pitches) {
       for (const pitch of pitches) this.output.send([0x80 | channel, pitch, 0]);
     }

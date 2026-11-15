@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialRequest } from "../src/domain";
 import { PlaybackTransport } from "../src/playback";
-import { applyRouting, defaultRoutingProfiles, resolveOutput } from "../src/routingProfiles";
+import { defaultRoutingProfiles, resolveOutput } from "../src/routingProfiles";
 import type { GenerationPackage } from "../src/types";
 
 class Parameter {
@@ -74,6 +74,83 @@ afterEach(() => {
 });
 
 describe("preview transport", () => {
+  it("schedules both tracks on separate channels of one MIDI output and clears its queue once", async () => {
+    const output = new MidiOutputMock();
+    const device = output as unknown as MIDIOutput;
+    const transport = new PlaybackTransport(() => {});
+    const chord = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 4, velocity: 90 };
+    transport.load(pkg, [chord]);
+    transport.setTrackRoutings({ bass: { output: device, channel: 0 }, chords: { output: device, channel: 1 } });
+    transport.setLoop(true);
+    await transport.play();
+    expect(output.send).toHaveBeenCalledWith([0x90, 33, 64], 0);
+    expect(output.send).toHaveBeenCalledWith([0x91, 60, 90], 0);
+    const context = AudioContextMock.instance;
+    context.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    const noteOns = output.send.mock.calls.filter((call) => call[0][0] === 0x90 || call[0][0] === 0x91);
+    expect(noteOns.slice(-2).map((call) => call[0])).toEqual([[0x90, 33, 64], [0x91, 60, 90]]);
+    expect(noteOns.at(-1)![1]).toBeCloseTo(125);
+    context.currentTime = 4.25;
+    expect(transport.beat).toBeCloseTo(0.5);
+    transport.pause();
+    expect(output.clear).toHaveBeenCalledTimes(1);
+    expect(output.send).toHaveBeenCalledWith([0x80, 33, 0]);
+    expect(output.send).toHaveBeenCalledWith([0x81, 60, 0]);
+    context.currentTime = 10;
+    await transport.play();
+    expect(output.send).toHaveBeenCalledWith([0x90, 33, 64], 25);
+    expect(output.send).toHaveBeenCalledWith([0x91, 60, 90], 25);
+    transport.stop();
+    expect(output.clear).toHaveBeenCalledTimes(2);
+    transport.dispose();
+  });
+
+  it("routes tracks independently and reschedules both at the same position after a route change", async () => {
+    const bass = new MidiOutputMock();
+    const chords = new MidiOutputMock();
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [{ note: "C4", midiNote: 60, startBeat: 0, durationBeats: 4, velocity: 90 }]);
+    transport.setTrackRoutings({
+      bass: { output: bass as unknown as MIDIOutput, channel: 2 },
+      chords: { output: chords as unknown as MIDIOutput, channel: 5 },
+    });
+    await transport.play();
+    expect(bass.send).toHaveBeenCalledWith([0x92, 33, 64], 0);
+    expect(chords.send).toHaveBeenCalledWith([0x95, 60, 90], 0);
+    AudioContextMock.instance.currentTime = 0.25;
+    transport.setTrackRoutings({
+      bass: { output: null, channel: 2 },
+      chords: { output: chords as unknown as MIDIOutput, channel: 5 },
+    });
+    expect(transport.beat).toBeCloseTo(0.5);
+    expect(transport.state).toBe("playing");
+    expect(bass.clear).toHaveBeenCalledOnce();
+    expect(chords.clear).toHaveBeenCalledOnce();
+    expect(chords.send).toHaveBeenCalledWith([0x95, 60, 90], 0);
+    expect(AudioContextMock.instance.oscillators.at(-1)!.start).toHaveBeenCalledWith(0.25);
+    expect(() => transport.setTrackRoutings({
+      bass: { output: chords as unknown as MIDIOutput, channel: 5 },
+      chords: { output: chords as unknown as MIDIOutput, channel: 5 },
+    })).toThrow("different channels");
+    expect(transport.state).toBe("playing");
+    transport.dispose();
+  });
+
+  it("plays simultaneous chord voices through the browser synth", async () => {
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [
+      { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 4, velocity: 90 },
+      { note: "E4", midiNote: 64, startBeat: 0, durationBeats: 4, velocity: 90 },
+    ]);
+    await transport.play();
+    expect(AudioContextMock.instance.oscillators).toHaveLength(3);
+    expect(AudioContextMock.instance.oscillators.map((oscillator) => oscillator.start.mock.calls[0][0])).toEqual([0, 0, 0]);
+    transport.pause();
+    expect(AudioContextMock.instance.gains.slice(1).every((gain) => gain.disconnect.mock.calls.length > 0)).toBe(true);
+    transport.dispose();
+  });
+
   it("schedules sorted notes against the audio clock and finishes after all sections", async () => {
     const transport = new PlaybackTransport(() => {});
     transport.load(pkg);
@@ -412,7 +489,7 @@ describe("preview transport", () => {
     const context = AudioContextMock.instance;
     context.currentTime = 0.25;
     const profile = defaultRoutingProfiles().profiles[2];
-    applyRouting(transport, profile.routing, resolveOutput(profile.routing.destination, [midiOutput]));
+    transport.setRouting(resolveOutput(profile.routing.destination, [midiOutput]), profile.routing.channel);
     expect(transport.state).toBe("playing");
     expect(transport.beat).toBe(0.5);
     expect(context.gains[1].disconnect).toHaveBeenCalled();
@@ -439,26 +516,6 @@ describe("preview transport", () => {
     expect(transport.beat).toBe(0.5);
     await transport.play();
     expect(output.send).toHaveBeenCalledWith([0x92, 33, 64], 0);
-    transport.dispose();
-  });
-
-  it("pauses at the same position if a profile device is unavailable instead of playing through the synth", async () => {
-    const transport = new PlaybackTransport(() => {});
-    transport.load(pkg);
-    await transport.play();
-    const context = AudioContextMock.instance;
-    context.currentTime = 0.25;
-    const profile = defaultRoutingProfiles().profiles[2];
-    applyRouting(transport, profile.routing, resolveOutput(profile.routing.destination, []));
-    expect(transport.state).toBe("paused");
-    expect(transport.beat).toBe(0.5);
-    expect(context.oscillators).toHaveLength(1);
-    const output = new MidiOutputMock();
-    applyRouting(transport, profile.routing, resolveOutput(profile.routing.destination, [output as unknown as MIDIOutput]));
-    expect(transport.state).toBe("paused");
-    expect(transport.beat).toBe(0.5);
-    await transport.play();
-    expect(output.send).toHaveBeenCalledWith([0x91, 33, 64], 0);
     transport.dispose();
   });
 

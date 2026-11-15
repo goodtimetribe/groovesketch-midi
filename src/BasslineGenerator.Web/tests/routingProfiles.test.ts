@@ -26,6 +26,7 @@ describe("routing profiles", () => {
       id: "fl", name: " FL Studio ", routing: {
         destination: { kind: "midi", deviceId: "loop", deviceName: "loopMIDI" }, channel: 0, instrument: "bass",
       },
+      chordRouting: { destination: { kind: "browser" }, channel: 1, instrument: "bass" },
     };
     const created = putProfile(initial, profile);
     expect(created.activeId).toBe("fl");
@@ -48,9 +49,21 @@ describe("routing profiles", () => {
     const storage = new MemoryStorage();
     storage.setItem(routingProfilesKey, "{");
     expect(() => loadRoutingProfiles(storage)).toThrow();
-    storage.setItem(routingProfilesKey, JSON.stringify({ version: 2, activeId: null, profiles: [] }));
+    storage.setItem(routingProfilesKey, JSON.stringify({ version: 3, activeId: null, profiles: [] }));
     expect(() => loadRoutingProfiles(storage)).toThrow("Invalid routing profiles");
-    expect(storage.getItem(routingProfilesKey)).toContain('"version":2');
+    expect(storage.getItem(routingProfilesKey)).toContain('"version":3');
+  });
+
+  it("migrates version 1 profiles without changing bass routes or overwriting storage", () => {
+    const storage = new MemoryStorage();
+    const routing = { destination: { kind: "midi", deviceId: "device", deviceName: "Circuit" }, channel: 3, instrument: "bass" };
+    const saved = JSON.stringify({ version: 1, activeId: "old", profiles: [{ id: "old", name: "Old", routing }] });
+    storage.setItem(routingProfilesKey, saved);
+    const loaded = loadRoutingProfiles(storage);
+    expect(loaded.version).toBe(2);
+    expect(loaded.profiles[0].routing).toEqual(routing);
+    expect(loaded.profiles[0].chordRouting).toEqual({ destination: { kind: "browser" }, channel: 1, instrument: "bass" });
+    expect(storage.getItem(routingProfilesKey)).toBe(saved);
   });
 
   it("resolves only a unique intended MIDI output and leaves browser routing independent", () => {
