@@ -1,48 +1,31 @@
 import type { GenerationPackage, NoteData } from "./types";
+import { defaultRoleAssignments, drumTrackForNote, hardwareTracks, type HardwareTrackId, type MusicalRole, type RgbColor } from "./hardwareTracks";
 
-type RgbColor = readonly [red: number, green: number, blue: number];
-
-export const circuitTracksColors = {
-  synth1: [230, 72, 152],
-  synth2: [94, 224, 181],
-  midi1: [73, 158, 255],
-  midi2: [244, 115, 167],
-  drum1: [255, 139, 61],
-  drum2: [255, 210, 66],
-  drum3: [180, 140, 255],
-  drum4: [69, 211, 224],
-} as const satisfies Record<string, RgbColor>;
-
-export interface TrackViewModel {
+export type TrackViewModel = {
   id: string;
   name: string;
-  role: string;
   visible: boolean;
   notes: NoteData[];
-  color: RgbColor;
   indicator: string;
-}
+} & ({ kind: "track"; hardwareTrackId: HardwareTrackId; role: MusicalRole }
+  | { kind: "drumGroup" });
+
+const drumIndicator = `linear-gradient(to bottom, rgb(${hardwareTracks.drum1.color.join(", ")}) 0 25%, rgb(${hardwareTracks.drum2.color.join(", ")}) 25% 50%, rgb(${hardwareTracks.drum3.color.join(", ")}) 50% 75%, rgb(${hardwareTracks.drum4.color.join(", ")}) 75% 100%)`;
 
 export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[]): TrackViewModel[] {
   return [
-    { id: "bass", name: "Bass", role: "bass", visible: visibility.bass ?? true, notes: pkg.notes ?? [], color: circuitTracksColors.synth1, indicator: "rgb(230, 72, 152)" },
-    { id: "chords", name: "Chords", role: "chords", visible: visibility.chords ?? true, notes: chordNotes, color: circuitTracksColors.synth2, indicator: "rgb(94, 224, 181)" },
+    { id: "bass", name: "Bass", kind: "track", hardwareTrackId: "synth1", role: defaultRoleAssignments.synth1, visible: visibility.bass ?? true, notes: pkg.notes ?? [], indicator: `rgb(${hardwareTracks.synth1.color.join(", ")})` },
+    { id: "chords", name: "Chords", kind: "track", hardwareTrackId: "synth2", role: defaultRoleAssignments.synth2, visible: visibility.chords ?? true, notes: chordNotes, indicator: `rgb(${hardwareTracks.synth2.color.join(", ")})` },
     ...(drumNotes ? [{
-      id: "drums", name: "Drums", role: "drums", visible: visibility.drums ?? true, notes: drumNotes,
-      color: circuitTracksColors.drum1,
-      indicator: "linear-gradient(to bottom, rgb(255, 139, 61) 0 25%, rgb(255, 210, 66) 25% 50%, rgb(180, 140, 255) 50% 75%, rgb(69, 211, 224) 75% 100%)",
+      id: "drums", name: "Drums", kind: "drumGroup" as const, visible: visibility.drums ?? true, notes: drumNotes,
+      indicator: drumIndicator,
     }] : []),
   ];
 }
 
 export function trackNoteColor(track: TrackViewModel, note: NoteData): RgbColor {
-  if (track.role !== "drums") return track.color;
-  switch (note.midiNote) {
-    case 36: return circuitTracksColors.drum1;
-    case 38: return circuitTracksColors.drum2;
-    case 42: return circuitTracksColors.drum3;
-    default: return circuitTracksColors.drum4;
-  }
+  const id = track.kind === "drumGroup" ? drumTrackForNote(note.midiNote) : track.hardwareTrackId;
+  return hardwareTracks[id].color;
 }
 
 export function rgba(color: RgbColor, opacity: number): string {

@@ -80,7 +80,7 @@ describe("preview transport", () => {
     const transport = new PlaybackTransport(() => {});
     transport.load(pkg, [], [{ note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 }]);
     transport.setTrackRoutings({
-      bass: { output: device, channel: 0 }, chords: { output: device, channel: 1 }, drums: { output: device, channel: 9 },
+      synth1: { output: device, channel: 0 }, synth2: { output: device, channel: 1 }, drum1: { output: device, channel: 9 },
     });
     transport.setLoop(true);
     await transport.play();
@@ -100,11 +100,29 @@ describe("preview transport", () => {
     const transport = new PlaybackTransport(() => {});
     transport.load(pkg, [], [{ note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 }]);
     transport.setTrackRoutings({
-      bass: { output: null, channel: 0 }, chords: { output: null, channel: 1 },
-      drums: { output: output as unknown as MIDIOutput, channel: 9 },
+      synth1: { output: null, channel: 0 }, synth2: { output: null, channel: 1 },
+      drum1: { output: output as unknown as MIDIOutput, channel: 9 },
     });
     await transport.play();
     expect(output.send).toHaveBeenCalledWith([0x99, 36, 110], 0);
+    transport.dispose();
+  });
+
+  it("routes all four hardware drum lanes through the existing shared drum route", async () => {
+    const output = new MidiOutputMock();
+    output.name = "Generic MIDI";
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [], [36, 38, 42, 54].map((midiNote) =>
+      ({ note: "drum", midiNote, startBeat: 0, durationBeats: 0.25, velocity: 100 })));
+    transport.setTrackRoutings({
+      synth1: { output: null, channel: 0 }, synth2: { output: null, channel: 1 },
+      drum1: { output: output as unknown as MIDIOutput, channel: 7 },
+    });
+    await transport.play();
+    for (const pitch of [36, 38, 42, 54]) expect(output.send).toHaveBeenCalledWith([0x97, pitch, 100], 0);
+    transport.pause();
+    for (const pitch of [36, 38, 42, 54]) expect(output.send).toHaveBeenCalledWith([0x87, pitch, 0]);
+    expect(output.clear).toHaveBeenCalledOnce();
     transport.dispose();
   });
 
@@ -114,7 +132,7 @@ describe("preview transport", () => {
     const transport = new PlaybackTransport(() => {});
     const chord = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 4, velocity: 90 };
     transport.load(pkg, [chord]);
-    transport.setTrackRoutings({ bass: { output: device, channel: 0 }, chords: { output: device, channel: 1 } });
+    transport.setTrackRoutings({ synth1: { output: device, channel: 0 }, synth2: { output: device, channel: 1 } });
     transport.setLoop(true);
     await transport.play();
     expect(output.send).toHaveBeenCalledWith([0x90, 33, 64], 0);
@@ -146,16 +164,16 @@ describe("preview transport", () => {
     const transport = new PlaybackTransport(() => {});
     transport.load(pkg, [{ note: "C4", midiNote: 60, startBeat: 0, durationBeats: 4, velocity: 90 }]);
     transport.setTrackRoutings({
-      bass: { output: bass as unknown as MIDIOutput, channel: 2 },
-      chords: { output: chords as unknown as MIDIOutput, channel: 5 },
+      synth1: { output: bass as unknown as MIDIOutput, channel: 2 },
+      synth2: { output: chords as unknown as MIDIOutput, channel: 5 },
     });
     await transport.play();
     expect(bass.send).toHaveBeenCalledWith([0x92, 33, 64], 0);
     expect(chords.send).toHaveBeenCalledWith([0x95, 60, 90], 0);
     AudioContextMock.instance.currentTime = 0.25;
     transport.setTrackRoutings({
-      bass: { output: null, channel: 2 },
-      chords: { output: chords as unknown as MIDIOutput, channel: 5 },
+      synth1: { output: null, channel: 2 },
+      synth2: { output: chords as unknown as MIDIOutput, channel: 5 },
     });
     expect(transport.beat).toBeCloseTo(0.5);
     expect(transport.state).toBe("playing");
@@ -164,8 +182,8 @@ describe("preview transport", () => {
     expect(chords.send).toHaveBeenCalledWith([0x95, 60, 90], 0);
     expect(AudioContextMock.instance.oscillators.at(-1)!.start).toHaveBeenCalledWith(0.25);
     expect(() => transport.setTrackRoutings({
-      bass: { output: chords as unknown as MIDIOutput, channel: 5 },
-      chords: { output: chords as unknown as MIDIOutput, channel: 5 },
+      synth1: { output: chords as unknown as MIDIOutput, channel: 5 },
+      synth2: { output: chords as unknown as MIDIOutput, channel: 5 },
     })).toThrow("different channels");
     expect(transport.state).toBe("playing");
     transport.dispose();
