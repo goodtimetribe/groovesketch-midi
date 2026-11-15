@@ -168,6 +168,9 @@ it("uses the selected pattern and generates every track using the same settings 
   expect(container.textContent).toContain("Visible notes (13)");
   expect(selectElement("Drum pattern").value).toBe("four-on-the-floor");
   expect(container.textContent).toContain("Use All Tracks MIDI to export the current sketch");
+  await select("Focus", "midi1");
+  await act(async () => button("Generate Melody").click());
+  expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([123, 123]);
 });
 
 it("downloads the applied drum pattern from the header and disables it after clearing", async () => {
@@ -257,7 +260,7 @@ it("replaces edited tracks and reproduces the sketch from its seed", async () =>
   expect(container.textContent).not.toContain("Midi2 · Chords");
   expect(visibleNotes()).toEqual(originalNotes);
   expect(vi.mocked(api.replay)).toHaveBeenCalledWith(expect.objectContaining({ seed: 123 }));
-  expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([123, 123, 123]);
+  expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([123, 122, 123]);
 });
 
 it("chooses one seed when blank and reuses it for regeneration", async () => {

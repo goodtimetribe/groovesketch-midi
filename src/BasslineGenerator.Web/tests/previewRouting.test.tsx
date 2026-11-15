@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../src/api";
 import { initialRequest } from "../src/domain";
+import { PlaybackTransport } from "../src/playback";
 import Preview from "../src/Preview";
 import type { GenerationPackage } from "../src/types";
 
@@ -118,6 +119,55 @@ it("shows volume when at least one track uses Browser Synth", async () => {
   expect(container.querySelector('[aria-label="Master volume"]')).toBeNull();
   await select("Midi2 Output", "");
   expect(container.querySelector('[aria-label="Master volume"]')).not.toBeNull();
+});
+
+it("shows and remembers per-track browser sounds in the playback sidebar", async () => {
+  const assign = vi.spyOn(PlaybackTransport.prototype, "setTrackSound");
+  const sidebar = document.createElement("aside");
+  document.body.appendChild(sidebar);
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} />));
+  const sounds = sidebar.querySelector<HTMLDetailsElement>(".track-sounds")!;
+  expect(sounds.open).toBe(false);
+  expect(sounds.querySelector("summary")?.textContent).toContain("Synth1: Classic");
+  expect(sounds.querySelector("summary")?.textContent).toContain("Midi2: Classic");
+  expect(sounds.querySelectorAll("select")).toHaveLength(4);
+  expect(assign).toHaveBeenCalledWith("synth1", "classic");
+  expect(assign).toHaveBeenCalledWith("midi2", "classic");
+  await act(async () => sounds.querySelector("summary")!.click());
+  const sound = sounds.querySelector<HTMLSelectElement>('[aria-label="Synth2 browser sound"]')!;
+  expect([...sound.options].map((option) => option.textContent)).toEqual([
+    "Classic", "Bass", "Acid Bass", "Warm Pad", "Dream Pad", "Saw Lead", "Square Lead", "Keys", "Pluck",
+  ]);
+  await act(async () => { sound.value = "warmPad"; sound.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(assign).toHaveBeenCalledWith("synth2", "warmPad");
+  expect(JSON.parse(sessionStorage.getItem("bassline-preview-track-sounds")!)).toEqual({
+    synth1: "classic", synth2: "warmPad", midi1: "classic", midi2: "classic",
+  });
+  await act(async () => sounds.querySelector("summary")!.click());
+  expect(sounds.querySelector("summary")?.textContent).toContain("Synth2: Warm Pad");
+  await act(async () => root.render(<Preview pkg={{ ...pkg }} disabled={false} playbackPane={sidebar} />));
+  expect(sidebar.querySelector<HTMLSelectElement>('[aria-label="Synth2 browser sound"]')?.value).toBe("warmPad");
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} />));
+  expect(sidebar.querySelector<HTMLSelectElement>('[aria-label="Synth2 browser sound"]')?.value).toBe("warmPad");
+  sidebar.remove();
+});
+
+it("reports invalid stored track sounds instead of silently restoring them", async () => {
+  sessionStorage.setItem("bassline-preview-track-sounds", '{"synth1":"not-a-sound"}');
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.textContent).toContain("Track Sounds could not be loaded or saved");
+  expect(container.querySelector<HTMLSelectElement>('[aria-label="Synth1 browser sound"]')?.value).toBe("classic");
+});
+
+it("keeps sound edits usable and reports a session storage failure", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+  const sound = container.querySelector<HTMLSelectElement>('[aria-label="Midi1 browser sound"]')!;
+  await act(async () => { sound.value = "pluck"; sound.dispatchEvent(new Event("change", { bubbles: true })); });
+  expect(sound.value).toBe("pluck");
+  expect(container.textContent).toContain("Track Sounds could not be loaded or saved");
 });
 
 it("shows and switches the selected profile without expanding hardware routing", async () => {

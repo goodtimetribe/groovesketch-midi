@@ -2,6 +2,7 @@ import type { GenerationPackage, NoteData } from "./types";
 import { MidiInstrument } from "./midi";
 import { mapCircuitTracksDrumNote } from "./circuitTracksDrums";
 import { drumTrackForNote, hardwareTrackIds, hardwareTracks, type DrumTrackId, type HardwareTrackId, type MelodicTrackId } from "./hardwareTracks";
+import { browserSounds, defaultTrackSounds, type BrowserSound, type BrowserSoundId } from "./trackSounds";
 
 export type PlaybackState = "stopped" | "playing" | "paused";
 type TrackId = HardwareTrackId;
@@ -18,23 +19,35 @@ export interface PreviewInstrument {
 class BassInstrument implements PreviewInstrument {
   private voices = new Set<{ oscillator: OscillatorNode; gain: GainNode }>();
 
-  constructor(private context: AudioContext, private output: AudioNode) {}
+  constructor(private context: AudioContext, private output: AudioNode, private sound: BrowserSoundId = "classic") {}
+
+  setSound(sound: BrowserSoundId) {
+    this.sound = sound;
+  }
 
   play(note: NoteData, start: number, duration: number) {
+    const preset: BrowserSound = browserSounds[this.sound];
     const oscillator = this.context.createOscillator();
     const filter = this.context.createBiquadFilter();
     const gain = this.context.createGain();
     const voice = { oscillator, gain };
-    const attack = Math.min(0.01, duration / 3);
-    const release = Math.min(0.04, duration / 3);
-    const level = note.velocity / 127 * 0.22;
-    oscillator.type = "sawtooth";
+    const attack = Math.min(preset.attack, duration / 3);
+    const release = Math.min(preset.release, duration / 3);
+    const decay = Math.min(preset.decay, duration - attack - release);
+    const level = note.velocity / 127 * preset.level;
+    oscillator.type = preset.oscillator;
     oscillator.frequency.value = 440 * Math.pow(2, (note.midiNote - 69) / 12);
     filter.type = "lowpass";
-    filter.frequency.value = 700;
+    filter.frequency.value = preset.cutoff;
+    filter.Q.value = preset.resonance;
+    if (preset.filterEnd !== undefined) {
+      filter.frequency.setValueAtTime(preset.cutoff, start);
+      filter.frequency.linearRampToValueAtTime(preset.filterEnd, start + Math.min(0.18, duration));
+    }
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(level, start + attack);
-    gain.gain.setValueAtTime(level, start + duration - release);
+    if (decay > 0) gain.gain.linearRampToValueAtTime(level * preset.sustain, start + attack + decay);
+    gain.gain.setValueAtTime(level * preset.sustain, start + duration - release);
     gain.gain.linearRampToValueAtTime(0, start + duration);
     oscillator.connect(filter).connect(gain).connect(this.output);
     this.voices.add(voice);
@@ -60,6 +73,7 @@ export class PlaybackTransport {
   private output: GainNode | null = null;
   private instruments: Partial<Record<TrackId, PreviewInstrument>> = {};
   private mutedTracks = new Set<TrackId>();
+  private sounds = { ...defaultTrackSounds };
   private notes: { track: TrackId; note: NoteData }[] = [];
   private secondsPerBeat = 0;
   private duration = 0;
@@ -197,6 +211,12 @@ export class PlaybackTransport {
     }
   }
 
+  setTrackSound(track: MelodicTrackId, sound: BrowserSoundId) {
+    this.sounds[track] = sound;
+    const instrument = this.instruments[track];
+    if (instrument instanceof BassInstrument) instrument.setSound(sound);
+  }
+
   setVolume(volume: number) {
     this.volume = volume;
     if (this.output && this.context) this.output.gain.setValueAtTime(volume / 100, this.context.currentTime);
@@ -259,15 +279,11 @@ export class PlaybackTransport {
     if (Object.values(this.routes).some(({ output }) => output && output.state !== "connected"))
       throw new Error("MIDI output disconnected.");
     this.instruments = {};
-    const activeTracks = new Set<HardwareTrackId>([
-      ...routingIds,
-      ...this.notes.map(({ track }) => track).filter((track) => !drumTrackIds.some((id) => id === track)),
-    ]);
-    for (const id of activeTracks) {
+    for (const id of routingIds) {
       const { output, channel } = this.routes[id];
       this.instruments[id] = output
         ? new MidiInstrument(output, this.context, channel)
-        : new BassInstrument(this.context, this.output);
+        : new BassInstrument(this.context, this.output, id === "drum1" ? "classic" : this.sounds[id]);
     }
     for (const id of drumTrackIds) this.instruments[id] = this.instruments.drum1;
     this.startedAt = this.context.currentTime;

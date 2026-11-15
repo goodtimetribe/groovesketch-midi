@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { arrangeDrums, type DrumPattern } from "./drumPatterns";
+import { melodySeed } from "./melodySeed";
 import { readChordNotes, type MelodicContent } from "./trackView";
 import type { GenerationPackage, NoteData } from "./types";
 
@@ -31,7 +32,7 @@ export async function createSketch(pkg: GenerationPackage, pattern: DrumPattern)
       scaleType: pkg.effectiveConfiguration.scaleType,
       progressionId: pkg.effectiveConfiguration.progressionId,
       sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
-      seed: pkg.seed,
+      seed: melodySeed(pkg.seed, "midi1"),
     }),
   ]);
   const chordNotes = readChordNotes(await chordBlob.arrayBuffer());
