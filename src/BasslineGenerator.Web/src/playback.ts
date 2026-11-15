@@ -59,6 +59,8 @@ export class PlaybackTransport {
   private offset = 0;
   private startedAt = 0;
   private nextNote = 0;
+  private nextCycle = 0;
+  private looping = false;
   private timer: ReturnType<typeof setInterval> | null = null;
   private revision = 0;
   private volume = 75;
@@ -113,15 +115,36 @@ export class PlaybackTransport {
     if (this.output && this.context) this.output.gain.setValueAtTime(volume / 100, this.context.currentTime);
   }
 
+  setLoop(enabled: boolean) {
+    if (this.looping === enabled) return;
+    if (!enabled && this.state === "playing") {
+      this.offset = this.position();
+      this.clearScheduled();
+      this.looping = false;
+      try {
+        this.beginPlayback();
+      } catch {
+        this.clearScheduled();
+        this.setState("paused");
+        this.onError(this.midiOutput
+          ? "MIDI playback failed. Check the output device and try again."
+          : "Audio preview failed. Check your browser audio settings and try again.");
+      }
+      return;
+    }
+    this.looping = enabled;
+    if (enabled && this.state === "playing") this.schedule();
+  }
+
   get beat() {
     if (!this.secondsPerBeat) return 0;
     return this.position() / this.secondsPerBeat;
   }
 
   private position() {
-    return this.state === "playing" && this.context
-      ? Math.min(this.duration, this.offset + this.context.currentTime - this.startedAt)
-      : this.offset;
+    if (this.state !== "playing" || !this.context) return this.offset;
+    const elapsed = this.offset + this.context.currentTime - this.startedAt;
+    return this.looping && this.duration ? elapsed % this.duration : Math.min(this.duration, elapsed);
   }
 
   async play() {
@@ -154,6 +177,7 @@ export class PlaybackTransport {
       : new BassInstrument(this.context, this.output);
     this.startedAt = this.context.currentTime;
     this.nextNote = 0;
+    this.nextCycle = 0;
     while (this.nextNote < this.notes.length && this.notes[this.nextNote].startBeat * this.secondsPerBeat < this.offset) {
       const note = this.notes[this.nextNote++];
       const remaining = (note.startBeat + note.durationBeats) * this.secondsPerBeat - this.offset;
@@ -223,17 +247,28 @@ export class PlaybackTransport {
 
   private scheduleNotes() {
     if (!this.context || !this.instrument) return;
-    const position = this.position();
-    if (position >= this.duration) {
+    const elapsed = this.offset + this.context.currentTime - this.startedAt;
+    if (!this.looping && elapsed >= this.duration) {
       this.stop();
       return;
     }
-    const horizon = position + 0.15;
-    while (this.nextNote < this.notes.length && this.notes[this.nextNote].startBeat * this.secondsPerBeat < horizon) {
+    if (!this.notes.length) return;
+    if (this.looping && this.nextCycle < Math.floor(elapsed / this.duration)) {
+      this.nextCycle = Math.floor(elapsed / this.duration);
+      this.nextNote = 0;
+    }
+    const horizon = elapsed + 0.15;
+    while (true) {
+      if (this.nextNote >= this.notes.length) {
+        if (!this.looping || (this.nextCycle + 1) * this.duration >= horizon) return;
+        this.nextCycle++;
+        this.nextNote = 0;
+      }
+      const noteStart = this.nextCycle * this.duration + this.notes[this.nextNote].startBeat * this.secondsPerBeat;
+      if (noteStart >= horizon) return;
       const note = this.notes[this.nextNote++];
-      const noteStart = note.startBeat * this.secondsPerBeat;
-      const remaining = (note.startBeat + note.durationBeats) * this.secondsPerBeat - Math.max(position, noteStart);
-      if (remaining > 0) this.instrument.play(note, this.context.currentTime + Math.max(0, noteStart - position), remaining);
+      const remaining = noteStart + note.durationBeats * this.secondsPerBeat - Math.max(elapsed, noteStart);
+      if (remaining > 0) this.instrument.play(note, this.context.currentTime + Math.max(0, noteStart - elapsed), remaining);
     }
   }
 }

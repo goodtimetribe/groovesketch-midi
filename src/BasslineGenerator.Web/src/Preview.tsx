@@ -38,6 +38,7 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
   const [profileName, setProfileName] = useState(initialProfile?.name ?? "");
   const [profileError, setProfileError] = useState(initial.error);
   const [state, setState] = useState<PlaybackState>("stopped");
+  const [looping, setLooping] = useState(false);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState(false);
   const [outputs, setOutputs] = useState<MIDIOutput[]>([]);
@@ -187,6 +188,10 @@ const Preview = forwardRef<PreviewHandle, { pkg: GenerationPackage; disabled: bo
         <button type="button" onClick={() => transport.pause()} disabled={disabled || state !== "playing"}>Pause</button>
         <button type="button" onClick={() => transport.stop()}>Stop</button>
         <button type="button" onClick={() => start(true)} disabled={disabled || unavailable || !pkg.notes?.length}>Restart</button>
+        <button type="button" aria-pressed={looping} onClick={() => {
+          transport.setLoop(!looping);
+          setLooping(!looping);
+        }}>{looping ? "Loop Enabled" : "Loop"}</button>
       </div>
       <label>Output
         <select value={unavailable ? "__unavailable__" : output?.id ?? ""} onChange={(event) => changeDestination(event.target.value)} aria-label="Playback output">

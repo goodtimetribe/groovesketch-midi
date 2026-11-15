@@ -98,6 +98,168 @@ describe("preview transport", () => {
     transport.dispose();
   });
 
+  it("schedules repeated loops ahead of the boundary and wraps the playhead on the audio clock", async () => {
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg);
+    transport.setLoop(true);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 1.9;
+    vi.advanceTimersByTime(25);
+    context.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    expect(context.oscillators).toHaveLength(3);
+    expect(context.oscillators[2].start).toHaveBeenCalledWith(4);
+    context.currentTime = 4;
+    expect(transport.beat).toBe(0);
+    vi.advanceTimersByTime(25);
+    expect(context.oscillators).toHaveLength(3);
+    context.currentTime = 7.9;
+    vi.advanceTimersByTime(25);
+    expect(context.oscillators.at(-1)!.start).toHaveBeenCalledWith(8);
+    context.currentTime = 8.25;
+    vi.advanceTimersByTime(25);
+    expect(transport.state).toBe("playing");
+    expect(transport.beat).toBeCloseTo(0.5);
+    expect(context.oscillators.filter((oscillator) => oscillator.frequency.value === 55)).toHaveLength(3);
+    transport.stop();
+    expect(transport.state).toBe("stopped");
+    expect(transport.beat).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    context.currentTime = 12;
+    vi.advanceTimersByTime(100);
+    expect(context.oscillators.filter((oscillator) => oscillator.frequency.value === 55)).toHaveLength(3);
+    transport.dispose();
+  });
+
+  it("pauses and resumes within a loop without losing position or duplicating the next cycle", async () => {
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg);
+    transport.setLoop(true);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 4.25;
+    vi.advanceTimersByTime(25);
+    expect(transport.beat).toBeCloseTo(0.5);
+    transport.pause();
+    expect(transport.state).toBe("paused");
+    expect(transport.beat).toBeCloseTo(0.5);
+    context.currentTime = 10;
+    await transport.play();
+    expect(context.oscillators.at(-1)!.start).toHaveBeenCalledWith(10);
+    expect(context.oscillators.at(-1)!.stop).toHaveBeenCalledWith(10.75);
+    context.currentTime = 13.65;
+    vi.advanceTimersByTime(25);
+    expect(context.oscillators.at(-1)!.start).toHaveBeenCalledWith(13.75);
+    context.currentTime = 13.75;
+    vi.advanceTimersByTime(25);
+    expect(transport.beat).toBe(0);
+    expect(transport.state).toBe("playing");
+    expect(context.oscillators.filter((oscillator) => oscillator.start.mock.calls[0][0] === 13.75)).toHaveLength(1);
+    transport.dispose();
+  });
+
+  it("cancels the queued next loop when loop is disabled near the boundary", async () => {
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg);
+    transport.setLoop(true);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    const queued = context.oscillators.at(-1)!;
+    expect(queued.start).toHaveBeenCalledWith(4);
+    transport.setLoop(false);
+    expect(queued.stop).toHaveBeenLastCalledWith();
+    context.currentTime = 4;
+    vi.advanceTimersByTime(25);
+    expect(transport.state).toBe("stopped");
+    expect(transport.beat).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    transport.dispose();
+  });
+
+  it("loops MIDI using the same clock, cancels queued messages on pause and stop, and resumes", async () => {
+    const output = new MidiOutputMock();
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg);
+    transport.setDestination(output as unknown as MIDIOutput);
+    transport.setLoop(true);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    expect(output.send.mock.calls[2][0]).toEqual([0x90, 33, 64]);
+    expect(output.send.mock.calls[2][1]).toBeCloseTo(125);
+    context.currentTime = 4.25;
+    transport.pause();
+    expect(output.clear).toHaveBeenCalledTimes(1);
+    expect(output.send).toHaveBeenCalledWith([0x80, 33, 0]);
+    expect(transport.beat).toBeCloseTo(0.5);
+    context.currentTime = 10;
+    await transport.play();
+    expect(output.send).toHaveBeenLastCalledWith([0x80, 33, 0], 775);
+    context.currentTime = 13.65;
+    vi.advanceTimersByTime(25);
+    const nextNote = [...output.send.mock.calls].reverse().find((call) => call[0][0] === 0x90);
+    expect(nextNote?.[0]).toEqual([0x90, 33, 64]);
+    expect(nextNote?.[1]).toBeCloseTo(150);
+    transport.stop();
+    expect(output.clear).toHaveBeenCalledTimes(2);
+    expect(output.send).toHaveBeenLastCalledWith([0x80, 33, 0]);
+    expect(vi.getTimerCount()).toBe(0);
+    transport.dispose();
+  });
+
+  it("can enable looping during playback and catch up after a delayed scheduler tick", async () => {
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 3.9;
+    transport.setLoop(true);
+    expect(context.oscillators.at(-1)!.start).toHaveBeenCalledWith(4);
+    context.currentTime = 12.25;
+    vi.advanceTimersByTime(25);
+    expect(transport.beat).toBeCloseTo(0.5);
+    expect(context.oscillators.at(-1)!.start).toHaveBeenCalledWith(12.25);
+    expect(context.oscillators.at(-1)!.stop).toHaveBeenCalledWith(13);
+    expect(transport.state).toBe("playing");
+    transport.dispose();
+  });
+
+  it("queues MIDI note-off before the next cycle's note-on and clears both when looping is disabled", async () => {
+    const output = new MidiOutputMock();
+    const transport = new PlaybackTransport(() => {});
+    transport.load({
+      ...pkg,
+      notes: [
+        { note: "A1", midiNote: 33, startBeat: 0, durationBeats: 1, velocity: 64 },
+        { note: "A1", midiNote: 33, startBeat: 7, durationBeats: 1, velocity: 64 },
+      ],
+    });
+    transport.setDestination(output as unknown as MIDIOutput);
+    transport.setLoop(true);
+    await transport.play();
+    const context = AudioContextMock.instance;
+    context.currentTime = 3.4;
+    vi.advanceTimersByTime(25);
+    context.currentTime = 3.9;
+    vi.advanceTimersByTime(25);
+    expect(output.send.mock.calls.slice(2).map((call) => call[0])).toEqual([
+      [0x90, 33, 64], [0x80, 33, 0], [0x90, 33, 64], [0x80, 33, 0],
+    ]);
+    transport.setLoop(false);
+    expect(output.clear).toHaveBeenCalledOnce();
+    expect(output.send.mock.calls.slice(-3).map((call) => call[0])).toEqual([
+      [0x80, 33, 0], [0x90, 33, 64], [0x80, 33, 0],
+    ]);
+    context.currentTime = 4;
+    vi.advanceTimersByTime(25);
+    expect(transport.state).toBe("stopped");
+    transport.dispose();
+  });
+
   it("pauses and resumes sustained notes, adjusts volume, and resets on restart and load", async () => {
     const transport = new PlaybackTransport(() => {});
     transport.load(pkg);
