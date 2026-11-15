@@ -4,9 +4,9 @@ import { drumPatterns } from "../src/drumPatterns";
 import type { NoteData } from "../src/types";
 
 function readTrackNotes(bytes: Uint8Array): { status: number; pitch: number }[] {
-  let offset = 14;
+  let offset = 18;
   const trackLength = new DataView(bytes.buffer, bytes.byteOffset).getUint32(offset);
-  offset += 8;
+  offset += 4;
   const end = offset + trackLength;
   let runningStatus = 0;
   const notes: { status: number; pitch: number }[] = [];
@@ -32,13 +32,16 @@ function readTrackNotes(bytes: Uint8Array): { status: number; pitch: number }[] 
 }
 
 describe("Circuit Tracks drum mapping", () => {
-  it("maps only the three supported voices for Circuit Tracks playback without mutating source notes", () => {
-    const notes: NoteData[] = [36, 38, 42].map((midiNote) => ({
+  it("maps supported voices for Circuit Tracks playback without mutating source notes", () => {
+    const notes: NoteData[] = [36, 38, 42, 54, 56, 60, 63, 70, 75, 80].map((midiNote) => ({
       note: "source", midiNote, startBeat: 0, durationBeats: 0.25, velocity: 100,
     }));
     const original = structuredClone(notes);
-    expect(notes.map((note) => mapCircuitTracksDrumNote(note, "Circuit Tracks MIDI").midiNote)).toEqual([60, 62, 64]);
+    expect(notes.map((note) => mapCircuitTracksDrumNote(note, "Circuit Tracks MIDI").midiNote))
+      .toEqual([60, 62, 64, 65, 65, 65, 65, 65, 65, 80]);
     expect(mapCircuitTracksDrumNote(notes[0], "Other MIDI")).toBe(notes[0]);
+    expect(mapCircuitTracksDrumNote(notes[3], "Other MIDI")).toBe(notes[3]);
+    expect(mapCircuitTracksDrumNote(notes[9], "Circuit Tracks MIDI")).toBe(notes[9]);
     expect(notes).toEqual(original);
   });
 
@@ -57,4 +60,16 @@ describe("Circuit Tracks drum mapping", () => {
     ]));
     expect(pattern.notes).toEqual(original);
   });
+
+  it.each(["house-shaker", "techno-cowbell", "trance-tambourine", "electro-claves", "breakbeat-bongo", "synthwave-conga"])(
+    "exports all four mapped voices for %s", async (id) => {
+      const pattern = drumPatterns.find((item) => item.id === id)!;
+      const original = structuredClone(pattern.notes);
+      const bytes = new Uint8Array(await createCircuitTracksDrumMidi(pattern.notes, 120, pattern.bars).arrayBuffer());
+      const notes = readTrackNotes(bytes);
+      expect(new Set(notes.map(({ pitch }) => pitch))).toEqual(new Set([60, 62, 64, 65]));
+      expect(notes).toHaveLength(pattern.notes.length);
+      expect(pattern.notes).toEqual(original);
+    },
+  );
 });

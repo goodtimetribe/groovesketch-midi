@@ -93,6 +93,18 @@ it("plays a selected drum pattern on channel 10, updates it during playback, and
   expect(container.textContent).toContain("must use different channels");
 });
 
+it("shows the selected pattern's description and Drum 4 sample guidance", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  await select("Drum pattern", "house-shaker");
+  expect(container.textContent).toContain("syncopated shaker on Drum 4");
+  expect(container.textContent).toContain("Load the suggested percussion sample on Drum 4");
+  await select("Drum pattern", "techno-cowbell");
+  expect(container.textContent).toContain("sparse cowbell accents on Drum 4");
+  expect(container.textContent).not.toContain("syncopated shaker on Drum 4");
+  await select("Drum pattern", "");
+  expect(container.textContent).not.toContain("sparse cowbell accents on Drum 4");
+});
+
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();

@@ -85,9 +85,15 @@ them to a MIDI drum instrument for percussion. Drum patterns are not included
 in saved packages, share codes, or the Bass and Bass + Chords exports.
 **Download Circuit Tracks Drum MIDI** exports the selected pattern as a
 separate drum-only MIDI file.
+The library includes curated House, Techno, Trance, Electro, Breakbeat, and
+Synthwave grooves. Each pattern's description suggests a percussion sound for
+Drum 4; select that sample on the Circuit Tracks itself.
 On playback to a MIDI output whose name contains “Circuit Tracks,” the supported
-GM notes map to Circuit Tracks Drum 1–3: kick 36 to 60, snare 38 to 62, and
-closed hat 42 to 64. Other outputs and the browser preview keep the source notes.
+GM notes map to Circuit Tracks Drum 1–4: kick 36 to 60, snare 38 to 62,
+closed hat 42 to 64, and tambourine 54, cowbell 56, bongo 60, conga 63,
+maracas (shaker) 70, and claves 75 to 65. The drum-only export uses the same
+mapping. Drum 4 plays its currently selected sample; MIDI does not select it.
+Other outputs and the browser preview keep the source notes.
 Chord notes must load before playback; retry if loading fails. Choose **Download
 Bass MIDI** for bass alone or **Download Bass + Chords MIDI** for a Type 1 MIDI
 file with separate bass and sustained chord tracks.

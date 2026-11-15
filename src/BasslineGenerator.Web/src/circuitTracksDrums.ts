@@ -4,6 +4,12 @@ const circuitTracksDrumNotes: Record<number, number> = {
   36: 60,
   38: 62,
   42: 64,
+  54: 65,
+  56: 65,
+  60: 65,
+  63: 65,
+  70: 65,
+  75: 65,
 };
 
 export function mapCircuitTracksDrumNote(note: NoteData, outputName: string | null | undefined): NoteData {
