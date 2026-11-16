@@ -8,6 +8,7 @@ import * as apiModule from "../src/api";
 import { api } from "../src/api";
 import { initialRequest } from "../src/domain";
 import { PlaybackTransport } from "../src/playback";
+import { generatePad } from "../src/padGenerator";
 import type { GenerateRequest, GenerationPackage, NoteData } from "../src/types";
 
 const bass: NoteData = { note: "A1", midiNote: 33, startBeat: 0, durationBeats: 1, velocity: 64 };
@@ -25,14 +26,20 @@ function packageFor(request: GenerateRequest): GenerationPackage {
   };
 }
 
-function midi() {
+function midi(bars: number, pitches = [60, 64, 67]) {
   const chunk = (id: string, data: number[]) =>
-    [...Array.from(id, (c) => c.charCodeAt(0)), 0, 0, 0, data.length, ...data];
+    [...Array.from(id, (c) => c.charCodeAt(0)), (data.length >>> 24) & 255, (data.length >>> 16) & 255, (data.length >>> 8) & 255, data.length & 255, ...data];
+  const events: number[] = [];
+  for (let bar = 0; bar < bars; bar++) {
+    for (const pitch of pitches) events.push(0, 0x91, pitch, 90);
+    pitches.forEach((pitch, index) => events.push(...(index === 0 ? [0x83, 0x60] : [0]), 0x81, pitch, 0));
+  }
+  events.push(0, 0xff, 0x2f, 0);
   return new Uint8Array([
     ...chunk("MThd", [0, 1, 0, 3, 0, 120]),
     ...chunk("MTrk", [0, 0xff, 0x2f, 0]),
     ...chunk("MTrk", [0, 0xff, 0x2f, 0]),
-    ...chunk("MTrk", [0, 0x91, 60, 90, 120, 0x81, 60, 0, 0, 0xff, 0x2f, 0]),
+    ...chunk("MTrk", events),
   ]).buffer;
 }
 
@@ -40,12 +47,25 @@ let container: HTMLDivElement;
 let root: Root;
 
 function button(name: string) {
+  if (name === "Apply Pattern") name = "Regenerate Drums";
+  else if (/^Generate (Bass|Chords|Melody|Pad)$/.test(name)) {
+    const focus = selectElement("Focus").value;
+    name = `Regenerate ${focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : "Midi2"}`;
+  }
+  const action = container.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
+  if (action) return action;
   const found = [...container.querySelectorAll("button")].find((item) => item.textContent === name);
   if (!found) throw new Error(`Missing button: ${name}`);
   return found;
 }
 
-function selectElement(label: string) {
+function selectElement(label: string): HTMLSelectElement {
+  if (label === "Generator") {
+    const focus = selectElement("Focus").value;
+    const name = focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : focus === "midi2" ? "Midi2" : "Drums";
+    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${name} role"]`);
+    if (role) return role;
+  }
   const found = [...container.querySelectorAll("label")].find((item) => item.textContent?.startsWith(label))?.querySelector("select");
   if (!found) throw new Error(`Missing select: ${label}`);
   return found;
@@ -75,11 +95,13 @@ beforeEach(async () => {
     scale() {}, fillRect() {}, fillText() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {},
   } as unknown as CanvasRenderingContext2D);
   vi.spyOn(window, "confirm").mockReturnValue(true);
-  vi.spyOn(api, "presets").mockResolvedValue(["Acid"]);
+  vi.spyOn(api, "presets").mockResolvedValue(["Acid", "Pop"]);
   vi.spyOn(api, "progressions").mockResolvedValue([{ id: "x", name: "X", description: "", chordSequence: ["i"], mood: "", suggestedUse: "" }]);
   vi.spyOn(api, "generate").mockImplementation(async (request) => packageFor(request));
   vi.spyOn(api, "replay").mockImplementation(async (pkg) => ({ ...pkg, notes: [bass] }));
-  vi.spyOn(api, "combinedMidi").mockResolvedValue({ arrayBuffer: async () => midi() } as Blob);
+  vi.spyOn(api, "combinedMidi").mockImplementation(async (pkg) => ({
+    arrayBuffer: async () => midi(pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0)),
+  } as Blob));
   vi.spyOn(api, "melody").mockResolvedValue([melody]);
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -100,6 +122,8 @@ afterEach(async () => {
 it("generates and plays a complete sketch immediately on first load", async () => {
   const load = vi.spyOn(PlaybackTransport.prototype, "load");
   const play = vi.spyOn(PlaybackTransport.prototype, "play").mockResolvedValue();
+  const exportMidi = vi.spyOn(allTracksMidi, "createAllTracksMidi");
+  vi.spyOn(apiModule, "download").mockImplementation(() => {});
   expect(selectElement("Drum pattern").value).toBe("four-on-the-floor");
   expect(button("Generate Sketch").disabled).toBe(false);
   const rootNote = selectElement("Root note").value;
@@ -114,9 +138,44 @@ it("generates and plays a complete sketch immediately on first load", async () =
   expect(latestLoad[3]!.synth1).toEqual([bass]);
   expect(latestLoad[3]!.synth2.length).toBeGreaterThan(0);
   expect(latestLoad[3]!.midi1).toEqual([melody]);
+  expect(latestLoad[3]!.midi2).toEqual(generatePad(latestLoad[3]!.synth2, initialRequest.bars, seed, "midi2"));
+  expect(latestLoad[3]!.midi2.length).toBeGreaterThan(0);
   expect(button("Play").disabled).toBe(false);
   await act(async () => button("Play").click());
   expect(play).toHaveBeenCalledOnce();
+  await act(async () => button("Download All Tracks MIDI (Circuit Tracks)").click());
+  expect(exportMidi.mock.calls[0][0].midi2).toEqual({ role: "pad", notes: latestLoad[3]!.midi2 });
+});
+
+it("auditions the generated Midi2 pad through the browser synth", async () => {
+  const oscillators: { frequency: { value: number }; start: ReturnType<typeof vi.fn> }[] = [];
+  class AudioNodeMock {
+    gain = { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} };
+    frequency = { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} };
+    Q = { value: 0 };
+    type = "";
+    start = vi.fn();
+    stop = vi.fn();
+    connect() { return this; }
+    disconnect() {}
+  }
+  vi.stubGlobal("AudioContext", class {
+    currentTime = 0;
+    destination = new AudioNodeMock();
+    createGain() { return new AudioNodeMock(); }
+    createBiquadFilter() { return new AudioNodeMock(); }
+    createOscillator() { const oscillator = new AudioNodeMock(); oscillators.push(oscillator); return oscillator; }
+    resume() { return Promise.resolve(); }
+    close() { return Promise.resolve(); }
+  });
+  const load = vi.spyOn(PlaybackTransport.prototype, "load");
+  await act(async () => button("Generate Sketch").click());
+  const pad = load.mock.calls.at(-1)![3]!.midi2;
+  await act(async () => button("Play").click());
+  for (const note of pad.filter((item) => item.startBeat === 0)) {
+    expect(oscillators.some((oscillator) => oscillator.start.mock.calls.length > 0 &&
+      oscillator.frequency.value === 440 * 2 ** ((note.midiNote - 69) / 12))).toBe(true);
+  }
 });
 
 it("requires a pattern if the default is cleared", async () => {
@@ -124,6 +183,129 @@ it("requires a pattern if the default is cleared", async () => {
   expect(button("Generate Sketch").disabled).toBe(true);
   await select("Drum pattern", "half-time");
   expect(button("Generate Sketch").disabled).toBe(false);
+});
+
+it("shows and clears sketch settings changes beside Generate Sketch without regenerating", async () => {
+  const status = container.querySelector<HTMLElement>(".sketch-settings-status")!;
+  const creative = container.querySelector('[aria-label="Creative actions"]')!;
+  expect(creative.contains(status)).toBe(true);
+  expect(status.textContent).toBe("");
+  await number("Seed", 123);
+  await number("Bars", 1);
+  await act(async () => button("Generate Sketch").click());
+  const notes = visibleNotes();
+  const calls = vi.mocked(api.generate).mock.calls.length;
+  const checkSelect = async (label: string, value: string) => {
+    const initial = selectElement(label).value;
+    await select(label, value);
+    expect(status.textContent).toContain("Settings Changed");
+    await select(label, initial);
+    expect(status.textContent).toBe("");
+  };
+  await checkSelect("Root note", selectElement("Root note").value === "C" ? "D" : "C");
+  await checkSelect("Scale", selectElement("Scale").value === "Major" ? "Minor" : "Major");
+  await checkSelect("Style", selectElement("Style").value === "Acid" ? "Pop" : "Acid");
+  await checkSelect("Mode", "custom");
+  await checkSelect("Drum pattern", "half-time");
+  const tempo = Number([...container.querySelectorAll("label")].find((item) => item.textContent?.startsWith("Tempo"))!.querySelector("input")!.value);
+  await number("Tempo", tempo === 140 ? 141 : 140);
+  expect(status.textContent).toContain("Settings Changed");
+  await number("Bars", 2);
+  await number("Tempo", tempo);
+  expect(status.textContent).toContain("Settings Changed");
+  await number("Bars", 1);
+  expect(status.textContent).toBe("");
+  await number("Seed", 124);
+  expect(status.textContent).toContain("Settings Changed");
+  await number("Seed", 123);
+  expect(status.textContent).toBe("");
+  vi.spyOn(crypto, "getRandomValues").mockImplementationOnce((array) => {
+    if (!(array instanceof Int32Array)) throw new Error("Expected an Int32Array.");
+    array[0] = 456;
+    return array;
+  });
+  await act(async () => button("New seed").click());
+  expect(status.textContent).toContain("Settings Changed");
+  await number("Seed", 123);
+  expect(status.textContent).toBe("");
+  expect(visibleNotes()).toEqual(notes);
+  expect(vi.mocked(api.generate)).toHaveBeenCalledTimes(calls);
+  expect(api.replay).not.toHaveBeenCalled();
+});
+
+it("detects and clears custom section edits against the generated arrangement", async () => {
+  vi.mocked(api.generate).mockImplementationOnce(async (request) => {
+    const pkg = packageFor(request);
+    return { ...pkg, effectiveConfiguration: { ...pkg.effectiveConfiguration, mode: "custom",
+      sections: request.sections!.map((section) => ({ ...section,
+        behavior: { movement: 10, groove: 20, mutation: 30, tension: 40, repetition: 50 } })) } };
+  });
+  await number("Seed", 123);
+  await number("Bars", 1);
+  await select("Mode", "custom");
+  await act(async () => button("Generate Sketch").click());
+  const status = container.querySelector<HTMLElement>(".sketch-settings-status")!;
+  expect(status.textContent).toBe("");
+  const name = container.querySelector<HTMLInputElement>(".section-editor input")!;
+  const original = name.value;
+  const setName = async (value: string) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, value);
+      name.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+  await setName("New section");
+  expect(status.textContent).toContain("Settings Changed");
+  await setName(original);
+  expect(status.textContent).toBe("");
+  await act(async () => button("Add section").click());
+  expect(status.textContent).toContain("Settings Changed");
+  const remove = [...container.querySelectorAll<HTMLButtonElement>(".section-editor button")]
+    .filter((element) => element.textContent === "Remove").at(-1)!;
+  await act(async () => remove.click());
+  expect(status.textContent).toBe("");
+});
+
+it("tracks character and section behavior edits and clears them when reverted", async () => {
+  await number("Seed", 123);
+  await number("Bars", 1);
+  await act(async () => button("Generate Sketch").click());
+  const status = container.querySelector<HTMLElement>(".sketch-settings-status")!;
+  const setRange = async (input: HTMLInputElement, value: number) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, String(value));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+  const sectionMovement = container.querySelector<HTMLInputElement>(".dimension input")!;
+  const original = Number(sectionMovement.value);
+  await setRange(sectionMovement, original === 66 ? 67 : 66);
+  expect(status.textContent).toContain("Settings Changed");
+  await setRange(sectionMovement, original);
+  expect(status.textContent).toBe("");
+  const movement = container.querySelector<HTMLInputElement>('#character-movement')!;
+  await setRange(movement, 65);
+  expect(status.textContent).toContain("Settings Changed");
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Use style default for movement"]')!.click());
+  expect(status.textContent).toBe("");
+});
+
+it("keeps the indicator until sketch generation succeeds, independently of track generation", async () => {
+  await number("Seed", 123);
+  await number("Bars", 1);
+  await act(async () => button("Generate Sketch").click());
+  const status = container.querySelector<HTMLElement>(".sketch-settings-status")!;
+  const root = selectElement("Root note").value;
+  await select("Root note", root === "C" ? "D" : "C");
+  await act(async () => button("Regenerate Midi1").click());
+  expect(status.textContent).toContain("Settings Changed");
+  expect(vi.mocked(api.melody).mock.calls.at(-1)![0].rootNote).toBe(root);
+  vi.mocked(api.melody).mockRejectedValueOnce(new Error("Melody generation failed."));
+  await act(async () => button("Generate Sketch").click());
+  expect(status.textContent).toContain("Settings Changed");
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Melody generation failed.");
+  await act(async () => button("Generate Sketch").click());
+  expect(status.textContent).toBe("");
 });
 
 it("does not overwrite a shared package when catalogs finish loading later", async () => {
@@ -160,12 +342,18 @@ it("uses the selected pattern and generates every track using the same settings 
   expect(container.textContent).toContain("Synth1 · Bass");
   expect(container.textContent).toContain("Synth2 · Chords");
   expect(container.textContent).toContain("Midi1 · Lead");
+  expect(container.textContent).toContain("Midi2 · Pad");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth1 role"]')?.value).toBe("bass");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth2 role"]')?.value).toBe("chords");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Midi1 role"]')?.value).toBe("melody");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Midi2 role"]')?.value).toBe("pad");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Drums role"]')?.value).toBe("drums");
   expect(container.textContent).toContain("Applied pattern: Four on the floor");
   expect(drums.contains(button("Clear Drums"))).toBe(true);
   expect(container.querySelector("nav")!.contains(button("Download Circuit Tracks Drum MIDI"))).toBe(true);
   expect(drums.contains(button("Download Circuit Tracks Drum MIDI"))).toBe(false);
   expect(container.querySelector('[aria-label="Note View"]')!.contains(selectElement("Drum pattern"))).toBe(false);
-  expect(container.textContent).toContain("Visible notes (13)");
+  expect(container.textContent).toContain("Visible notes (18)");
   expect(selectElement("Drum pattern").value).toBe("four-on-the-floor");
   expect(container.textContent).toContain("Use All Tracks MIDI to export the current sketch");
   await select("Focus", "midi1");
@@ -253,11 +441,15 @@ it("replaces edited tracks and reproduces the sketch from its seed", async () =>
   await select("Focus", "drums");
   await act(async () => button("Apply Pattern").click());
   expect(container.textContent).toContain("Applied pattern: Half time");
+  await select("Focus", "synth2");
+  await select("Generator", "pad");
   await select("Drum pattern", "four-on-the-floor");
   await act(async () => button("Generate Sketch").click());
   expect(container.textContent).toContain("Synth1 · Bass");
   expect(container.textContent).toContain("Applied pattern: Four on the floor");
   expect(container.textContent).not.toContain("Midi2 · Chords");
+  expect(container.textContent).toContain("Midi2 · Pad");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth2 role"]')?.value).toBe("chords");
   expect(visibleNotes()).toEqual(originalNotes);
   expect(vi.mocked(api.replay)).toHaveBeenCalledWith(expect.objectContaining({ seed: 123 }));
   expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([123, 122, 123]);
@@ -320,7 +512,8 @@ it("keeps creative controls available with Settings and piano-roll options colla
   const creative = container.querySelector('[aria-label="Creative actions"]')!;
   expect(settings.open).toBe(false);
   expect(roll.open).toBe(false);
-  expect(creative.contains(selectElement("Generator"))).toBe(true);
+  expect(creative.contains(selectElement("Generator"))).toBe(false);
+  expect(selectElement("Generator").closest(".roll-visibility")).not.toBeNull();
   await select("Generator", "melody");
   await act(async () => button("Generate Melody").click());
   expect(container.textContent).toContain("Midi2 · Lead");
@@ -368,4 +561,16 @@ it("keeps the previous sketch intact while generating and when a track fails", a
   expect(container.textContent).toContain("Applied pattern: Four on the floor");
   expect(button("Generate Sketch").disabled).toBe(false);
   expect(stop).not.toHaveBeenCalled();
+});
+
+it("keeps the previous sketch intact when pad generation fails", async () => {
+  await number("Seed", 123);
+  await number("Bars", 1);
+  await act(async () => button("Generate Sketch").click());
+  const before = visibleNotes();
+  vi.mocked(api.combinedMidi).mockResolvedValueOnce({ arrayBuffer: async () => midi(1, [60, 64]) } as Blob);
+  await act(async () => button("Generate Sketch").click());
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain("Pad generation requires a triad in every bar.");
+  expect(container.textContent).toContain("Midi2 · Pad");
+  expect(visibleNotes()).toEqual(before);
 });

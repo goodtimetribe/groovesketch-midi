@@ -9,6 +9,7 @@ import { hardwareTracks, melodicTrackIds, type MelodicTrackId } from "./hardware
 import { defaultHardwarePatches, isHardwarePatch, type HardwarePatch, type HardwarePatches } from "./hardwarePatches";
 import { MidiDevices } from "./midi";
 import { melodySeed } from "./melodySeed";
+import { generatePad } from "./padGenerator";
 import { PlaybackTransport, type PlaybackState } from "./playback";
 import { validateMelodyNotes, type Sketch } from "./sketch";
 import { readChordNotes, type MelodicContent } from "./trackView";
@@ -84,13 +85,13 @@ function initialProfiles() {
 }
 
 const Preview = forwardRef<PreviewHandle, {
-  pkg: GenerationPackage; disabled: boolean; playbackPane?: HTMLElement | null; generatorPane?: HTMLElement | null;
+  pkg: GenerationPackage; disabled: boolean; playbackPane?: HTMLElement | null;
   patternPane?: HTMLElement | null; drumDownloadPane?: HTMLElement | null; allDownloadPane?: HTMLElement | null;
   onPreviewDownload?: () => void;
   sketch?: Sketch | null; sketchBusy?: boolean;
   patternSelection?: { id: string; onChange: (id: string) => void };
   onGeneratingChange?: (generating: boolean) => void;
-}>(function Preview({ pkg, disabled, playbackPane, generatorPane, patternPane, drumDownloadPane, allDownloadPane, onPreviewDownload, sketch, sketchBusy, patternSelection, onGeneratingChange }, ref) {
+}>(function Preview({ pkg, disabled, playbackPane, patternPane, drumDownloadPane, allDownloadPane, onPreviewDownload, sketch, sketchBusy, patternSelection, onGeneratingChange }, ref) {
   const [initial] = useState(initialProfiles);
   const [profiles, setProfiles] = useState(initial.data);
   const initialProfile = initial.data.profiles.find((p) => p.id === initial.data.activeId);
@@ -338,6 +339,11 @@ const Preview = forwardRef<PreviewHandle, {
     setError("");
     const generate = async () => {
       if (generator === "chords") return readChordNotes(await (await api.combinedMidi(pkg)).arrayBuffer());
+      if (generator === "pad") {
+        if (!readyChords || readyChords.error) throw new Error("Chord notes are not ready for pad generation.");
+        const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
+        return generatePad(readyChords.notes, bars, pkg.seed, track);
+      }
       if (generator === "melody") return validateMelodyNotes(await api.melody({
         rootNote: pkg.effectiveConfiguration.rootNote,
         scaleType: pkg.effectiveConfiguration.scaleType,
@@ -404,7 +410,7 @@ const Preview = forwardRef<PreviewHandle, {
       </select>
     </label>
     {selectedPattern && <p className="hint">{selectedPattern.description}</p>}</>}
-    <p className="hint">Select Drums in Focus and choose Apply Pattern to update the drum content.</p>
+    <p className="hint">Select a pattern, then regenerate Drums above the piano roll to apply it.</p>
     <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === appliedPatternId)?.name ?? "None"}</p>
     <button type="button" disabled={sketchBusy || !appliedPatternId} onClick={() => setAppliedPatternId("")}>Clear Drums</button>
     <p className="hint">Exports the applied drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>
@@ -528,7 +534,6 @@ const Preview = forwardRef<PreviewHandle, {
     {drumDownloadPane ? createPortal(drumDownload, drumDownloadPane) : drumDownload}
     {allDownloadPane ? createPortal(allDownload, allDownloadPane) : allDownload}
     <PianoRoll pkg={pkg} transport={transport} playbackState={state} chordNotes={readyChords?.notes ?? []} drumNotes={drumNotes}
-      generatorPane={generatorPane}
       workflow={{ content: tracks, busy: generating, disabled: disabled || !readyChords || !!readyChords.error,
         patternSelected: !!selectedPattern, generate: generateTrack }} />
   </>;

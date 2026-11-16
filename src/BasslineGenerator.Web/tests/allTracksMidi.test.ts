@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { createAllTracksMidi } from "../src/allTracksMidi";
+import { generatePad } from "../src/padGenerator";
 import type { MelodicContent } from "../src/trackView";
 import type { NoteData } from "../src/types";
 
@@ -107,6 +108,20 @@ it("writes configured programs at tick zero before notes, without changing drums
   expect(result.tracks[3].statuses.indexOf(0xc2)).toBeLessThan(result.tracks[3].statuses.indexOf(0x92));
   expect(result.tracks[5].notes[0]).toMatchObject({ status: 0x99, pitch: 60 });
   expect(() => createAllTracksMidi(content, [], 120, 1, { ...patches, midi2: 128 })).toThrow(/invalid MIDI program/);
+});
+
+it("exports generated pad notes on the assigned hardware track with sustained timing", async () => {
+  const chords = [60, 64, 67].map((pitch) => note(pitch, 0, 4));
+  const pad = generatePad(chords, 1, 5, "midi2");
+  const content: MelodicContent = {
+    synth1: { role: "bass", notes: [note(36)] }, synth2: { role: "chords", notes: chords },
+    midi1: { role: "lead", notes: [note(76)] }, midi2: { role: "pad", notes: pad },
+  };
+  const midi = readMidi(new Uint8Array(await createAllTracksMidi(content, [], 120, 1).arrayBuffer()));
+  expect(midi.tracks[4].notes.filter((event) => event.status === 0x93).map((event) => event.pitch).sort((a, b) => a - b))
+    .toEqual(pad.map((item) => item.midiNote).sort((a, b) => a - b));
+  expect(midi.tracks[4].notes.filter((event) => event.status === 0x83).every((event) => event.tick === 1920)).toBe(true);
+  expect(midi.tracks[3].notes[0]).toMatchObject({ status: 0x92, pitch: 76 });
 });
 
 it("keeps empty tracks and rejects notes that cannot be represented in MIDI", async () => {
