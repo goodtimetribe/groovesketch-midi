@@ -1,20 +1,58 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { PlaybackState, PlaybackTransport } from "./playback";
-import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent } from "./trackView";
-import type { MelodicTrackId } from "./hardwareTracks";
+import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "./trackView";
+import { melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
 import type { GenerationPackage, NoteData } from "./types";
 
-export type GeneratorType = "bass" | "chords" | "melody" | "drums";
+export type GeneratorType = "bass" | "chords" | "melody" | "pad" | "drums";
 export type FocusTrack = MelodicTrackId | "drums";
+type MelodicGenerator = Exclude<GeneratorType, "drums">;
+type Workflow = { content: MelodicContent; busy: boolean; disabled: boolean; patternSelected: boolean;
+  generate: (track: FocusTrack, generator: GeneratorType) => void };
 interface Props {
   pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[];
-  generatorPane?: HTMLElement | null;
-  workflow?: { content: MelodicContent; busy: boolean; disabled: boolean; patternSelected: boolean;
-    generate: (track: FocusTrack, generator: GeneratorType) => void };
+  workflow?: Workflow;
 }
 
-export default function PianoRoll({ pkg, transport, playbackState, chordNotes, drumNotes, workflow, generatorPane }: Props) {
+function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewModel; pkg: GenerationPackage;
+  workflow?: Workflow; onVisibility: (enabled: boolean) => void }) {
+  const id = melodicTrackIds.find((item) => item === track.id);
+  const role = track.kind === "track" ? track.role : null;
+  const generatorForRole = (value: typeof role): MelodicGenerator | "" =>
+    value === "lead" ? "melody" : value === "bass" || value === "chords" || value === "pad" ? value : "";
+  const [generator, setGenerator] = useState<MelodicGenerator | "">(() => generatorForRole(role));
+  useEffect(() => { setGenerator(generatorForRole(role)); }, [pkg, role]);
+  const trackName = id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : id === "midi2" ? "Midi2" : "Drums";
+  return <div className="track-row">
+    <label className="check">
+      <input type="checkbox" checked={track.visible} onChange={(event) => onVisibility(event.target.checked)} />
+      <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" /> {track.name}
+    </label>
+    {workflow && id && <>
+      <select aria-label={`${trackName} role`} value={generator} disabled={workflow.busy || workflow.disabled} onChange={(event) => {
+        const value = event.target.value;
+        if (value === "bass" || value === "chords" || value === "melody" || value === "pad") setGenerator(value);
+      }}>
+        <option value="" disabled>Choose role</option>
+        <option value="bass">Bass</option><option value="chords">Chords</option>
+        <option value="melody">Lead</option><option value="pad">Pad</option>
+      </select>
+      <button type="button" aria-label={`Regenerate ${trackName}`} title={`Regenerate ${trackName}`}
+        disabled={workflow.busy || workflow.disabled || !generator}
+        onClick={() => { if (generator) workflow.generate(id, generator); }}>↻</button>
+    </>}
+    {workflow && track.kind === "drumGroup" && <>
+      <select aria-label="Drums role" value="drums" disabled={workflow.busy || workflow.disabled} onChange={() => {}}>
+        <option value="drums">Pattern</option>
+      </select>
+      <button type="button" aria-label="Regenerate Drums" title="Apply selected drum pattern"
+        disabled={workflow.busy || workflow.disabled || !workflow.patternSelected}
+        onClick={() => workflow.generate("drums", "drums")}>↻</button>
+    </>}
+  </div>;
+}
+
+export default function PianoRoll({ pkg, transport, playbackState, chordNotes, drumNotes, workflow }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
   const [startBar, setStartBar] = useState(0);
@@ -22,7 +60,6 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
   const [selected, setSelected] = useState<{ trackId: string; note: NoteData } | null>(null);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
   const [focus, setFocus] = useState(workflow ? "synth1" : "bass");
-  const [generator, setGenerator] = useState<GeneratorType>("bass");
   const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility, drumNotes, workflow?.content), [pkg, chordNotes, visibility, drumNotes, workflow?.content]);
   const rendering = useMemo(() => tracksForRendering(tracks, focus), [tracks, focus]);
   const notes = useMemo(() => rendering.flatMap(({ track }) => track.notes), [rendering]);
@@ -106,22 +143,6 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     .filter((n) => n.startBeat + n.durationBeats > start * 4 && n.startBeat < (start + barsVisible) * 4)
     .map((note) => ({ track, note })));
   const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible && track.notes.includes(selected.note));
-  const generatorControls = workflow && <>
-    <label>Generator <select value={generator} onChange={(event) => {
-      const value = event.target.value;
-      if (value === "drums" && focus === "drums") setGenerator(value);
-      else if ((value === "bass" || value === "chords" || value === "melody") && focus !== "drums") setGenerator(value);
-    }}>
-      <option value="bass" disabled={focus === "drums"}>Bass</option>
-      <option value="chords" disabled={focus === "drums"}>Chords</option>
-      <option value="melody" disabled={focus === "drums"}>Melody</option>
-      <option value="drums" disabled={focus !== "drums"}>Drums</option>
-    </select></label>
-    <button type="button" disabled={workflow.busy || workflow.disabled || (generator === "drums" && !workflow.patternSelected)}
-      onClick={() => workflow.generate(focus as FocusTrack, generator)}>
-      {generator === "drums" ? "Apply Pattern" : generator === "melody" ? "Generate Melody" : generator === "bass" ? "Generate Bass" : "Generate Chords"}
-    </button>
-  </>;
   return <section className="roll card" aria-label="Note View">
     <div className="section-title"><div><p className="eyebrow">NOTE VIEW</p><h2>Piano roll</h2></div></div>
     <details className="roll-options" open>
@@ -138,32 +159,20 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
           })}
         </div>
         <div className="track-controls">
-          <label>Focus <select value={focus} onChange={(event) => {
-            const next = event.target.value;
-            setFocus(next);
-            if (workflow) {
-              const role = next === "drums" ? "drums" : workflow.content[next as MelodicTrackId].role ?? "bass";
-              setGenerator(role === "lead" ? "melody" : role);
-            }
-          }}>
+          <label>Focus <select value={focus} onChange={(event) => setFocus(event.target.value)}>
             {tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
           </select></label>
         </div>
       </div>
     </div>
-    {generatorPane ? createPortal(generatorControls, generatorPane) : <div className="track-controls">{generatorControls}</div>}
-    {workflow && <p className="hint">Focus a track, select a generator, then generate. Track changes are not included in packages or bass and chords exports; use All Tracks MIDI to export them.</p>}
     </details>
     <div className="track-controls roll-visibility">
       <fieldset><legend>Tracks</legend>
-        {tracks.map((track) => <label className="check" key={track.id}>
-          <input type="checkbox" checked={track.visible} onChange={(event) => {
-            const enabled = event.target.checked;
+        {tracks.map((track) => <TrackRow key={track.id} track={track} pkg={pkg} workflow={workflow}
+          onVisibility={(enabled) => {
             transport.setTrackEnabled(track.kind === "drumGroup" ? "drums" : track.hardwareTrackId, enabled);
             setVisibility((old) => ({ ...old, [track.id]: enabled }));
-          }} />
-          <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" /> {track.name}
-        </label>)}
+          }} />)}
       </fieldset>
       <label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
         {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}

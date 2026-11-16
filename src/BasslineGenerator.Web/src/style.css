@@ -21,9 +21,10 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .app { max-width: 1800px; margin: auto; }
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 32px; border-bottom: 1px solid #283345; gap: 20px; }
 .topbar nav, .actions, .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.creative-bar, .track-generator { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.creative-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .creative-bar { padding: 10px 32px; border-bottom: 1px solid #283345; }
-.track-generator label { flex-direction: row; align-items: center; margin: 0; }
+.sketch-settings-status { color: #ffdfa3; font-size: .85rem; font-weight: 600; }
+.sketch-settings-status:empty { display: none; }
 .download-split { position: relative; display: inline-flex; }
 .download-split > button:first-child { border-radius: 7px 0 0 7px; }
 .download-split > .download-toggle { border-radius: 0 7px 7px 0; border-left: 1px solid #326c5c; padding: 9px 10px; }
@@ -109,6 +110,11 @@ summary { cursor: pointer; font-weight: 700; }
 .track-controls label { margin: 6px 0; }
 .track-controls > label { flex-direction: row; align-items: center; }
 .roll-visibility > label { margin-left: auto; }
+.roll-visibility fieldset { flex: 1 1 100%; gap: 6px; }
+.track-row { display: flex; align-items: center; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.track-row .check { flex: 1 0 auto; white-space: nowrap; }
+.track-row select { width: auto; min-width: 0; flex: 1 1 80px; padding: 5px; }
+.track-row button { padding: 5px 9px; }
 .track-indicator { display: inline-block; width: .8rem; height: .8rem; border: 1px solid #e6ecf5; border-radius: 2px; box-shadow: 0 0 0 1px #101520; }
 .roll-canvas { position: relative; }
 .playhead { position: absolute; top: 26px; bottom: 1px; width: 2px; background: #ffe294; pointer-events: none; }

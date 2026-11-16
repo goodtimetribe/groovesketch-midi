@@ -1,6 +1,7 @@
 import { api } from "./api";
 import { arrangeDrums, type DrumPattern } from "./drumPatterns";
 import { melodySeed } from "./melodySeed";
+import { generatePad } from "./padGenerator";
 import { readChordNotes, type MelodicContent } from "./trackView";
 import type { GenerationPackage, NoteData } from "./types";
 
@@ -38,6 +39,8 @@ export async function createSketch(pkg: GenerationPackage, pattern: DrumPattern)
   const chordNotes = readChordNotes(await chordBlob.arrayBuffer());
   if (!chordNotes.length) throw new Error("The generated chord notes were missing.");
   const melody = validateMelodyNotes(melodyResponse);
+  const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
+  const pad = generatePad(chordNotes, bars, pkg.seed, "midi2");
   const drumNotes = arrangeDrums(pattern, pkg.effectiveConfiguration.sections);
   if (!drumNotes.length) throw new Error("The selected drum pattern produced no notes.");
   return {
@@ -46,7 +49,7 @@ export async function createSketch(pkg: GenerationPackage, pattern: DrumPattern)
       synth1: { role: "bass", notes: pkg.notes },
       synth2: { role: "chords", notes: chordNotes },
       midi1: { role: "lead", notes: melody },
-      midi2: { role: null, notes: [] },
+      midi2: { role: "pad", notes: pad },
     },
   };
 }

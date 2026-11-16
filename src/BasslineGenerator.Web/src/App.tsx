@@ -5,12 +5,24 @@ import { drumPatterns } from "./drumPatterns";
 import Preview, { type PreviewHandle } from "./Preview";
 import Modal from "./Modal";
 import { createSketch, type Sketch } from "./sketch";
-import { dimensions, type Dimension, type GenerateRequest, type GenerationPackage, type Progression } from "./types";
+import { dimensions, type Behavior, type Dimension, type GenerateRequest, type GenerationPackage, type Progression } from "./types";
 
 type Catalogs = { presets: string[]; progressions: Progression[]; roots: string[]; scales: string[] };
 type Mode = "single" | "arrangement" | "custom";
 const chordExportChannel = 1; // Zero-based MIDI channel 2, matching the API.
 const message = (error: unknown) => error instanceof Error ? error.message : "Something went wrong.";
+const settingKeys = ["rootNote", "scaleType", "style", "bpm", "bars", "mode", "progression", "seed",
+  "channel", "velocity", "velocityVariation", "timingVariation", "swing", "accentDownbeats", ...dimensions] as const;
+
+function sameSketchSettings(current: GenerateRequest, applied: GenerateRequest): boolean {
+  if (settingKeys.some((key) => !Object.is(current[key], applied[key]))) return false;
+  const sections = applied.sections;
+  if (!current.sections || !sections) return current.sections === sections;
+  return current.sections.length === sections.length && current.sections.every((section, index) => {
+    const other = sections[index];
+    return section.name === other.name && section.style === other.style && section.bars === other.bars;
+  });
+}
 
 export default function App() {
   const [catalogs, setCatalogs] = useState<Catalogs | null>(null);
@@ -18,6 +30,7 @@ export default function App() {
   const [request, setRequest] = useState<GenerateRequest>(initialRequest);
   const [result, setResult] = useState<GenerationPackage | null>(null);
   const [draftPackage, setDraftPackage] = useState<GenerationPackage | null>(null);
+  const [settingsBehaviors, setSettingsBehaviors] = useState<Behavior[]>([]);
   const [dirty, setDirty] = useState(false);
   const [resetDefaults, setResetDefaults] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -30,7 +43,6 @@ export default function App() {
   const [loadOpen, setLoadOpen] = useState(false);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [playbackPane, setPlaybackPane] = useState<HTMLElement | null>(null);
-  const [generatorPane, setGeneratorPane] = useState<HTMLElement | null>(null);
   const [patternPane, setPatternPane] = useState<HTMLElement | null>(null);
   const [drumDownloadPane, setDrumDownloadPane] = useState<HTMLElement | null>(null);
   const [allDownloadPane, setAllDownloadPane] = useState<HTMLElement | null>(null);
@@ -88,6 +100,7 @@ export default function App() {
     preview.current?.stop();
     setSketch(prepared ?? null);
     setResult(pkg); setDraftPackage(structuredClone(pkg)); setRequest(requestFromPackage(pkg));
+    setSettingsBehaviors(pkg.effectiveConfiguration.sections.map((section) => ({ ...section.behavior })));
     setDirty(false); setResetDefaults(false); setSaved(false); setSectionIndex(0); setSharedCode("");
     setStatus(source); setError("");
   }, []);
@@ -119,6 +132,12 @@ export default function App() {
   };
   const updateDimension = (dimension: Dimension, value: number | null) => {
     update(dimension, value);
+    setSettingsBehaviors((old) => {
+      if (!result) return old;
+      return old.map((behavior, index) => ({
+        ...behavior, [dimension]: value ?? result.effectiveConfiguration.sections[index].behavior[dimension],
+      }));
+    });
     if (result && value === null) setResetDefaults(true);
     if (value !== null) setDraftPackage((old) => old && ({
       ...old, effectiveConfiguration: { ...old.effectiveConfiguration,
@@ -127,6 +146,8 @@ export default function App() {
     }));
   };
   const updateSectionBehavior = (dimension: Dimension, value: number) => {
+    setSettingsBehaviors((old) => old.map((behavior, index) => index === sectionIndex
+      ? { ...behavior, [dimension]: value } : behavior));
     setDraftPackage((old) => old && ({
       ...old, effectiveConfiguration: { ...old.effectiveConfiguration,
         sections: old.effectiveConfiguration.sections.map((section, index) => index === sectionIndex
@@ -259,6 +280,13 @@ export default function App() {
   };
 
   const activeSection = draftPackage?.effectiveConfiguration.sections[sectionIndex];
+  const sketchSettingsChanged = !!sketch && sketch.pkg === result && (
+    !sameSketchSettings(request, requestFromPackage(sketch.pkg)) || patternId !== sketch.patternId ||
+    settingsBehaviors.length !== sketch.pkg.effectiveConfiguration.sections.length ||
+    settingsBehaviors.some((behavior, index) => dimensions.some((dimension) =>
+      behavior[dimension] !== sketch.pkg.effectiveConfiguration.sections[index].behavior[dimension]))
+  );
+  const showSettingsWarning = sketch && sketch.pkg === result ? sketchSettingsChanged : dirty;
   const selectedPattern = drumPatterns.find((pattern) => pattern.id === patternId);
   const selectedProgression = catalogs?.progressions.find((p) => p.id === request.progression || p.name === request.progression);
   const progressionSummary = selectedProgression?.name ?? (request.progression
@@ -289,10 +317,9 @@ export default function App() {
     </header>
     <div className="creative-bar" role="group" aria-label="Creative actions">
       <button type="button" className="primary" disabled={!!busy || !catalogs || trackBusy || !patternId} onClick={generateSketch}>Generate Sketch</button>
-      <div className="track-generator" ref={setGeneratorPane}>
-        {!result && <><label>Generator <select disabled defaultValue="bass"><option value="bass">Bass</option></select></label>
-          <button type="button" disabled>Generate Bass</button></>}
-      </div>
+      <span className="sketch-settings-status" role="status" aria-live="polite">
+        {sketchSettingsChanged && <><span aria-hidden="true">●</span> Settings Changed</>}
+      </span>
       <button className="generate" type="submit" form="generation-form" disabled={!!busy || !catalogs}>{result ? "Regenerate Bass Package" : "Generate Bass Package"}</button>
     </div>
     <div className="announcements" aria-live="polite">
@@ -311,7 +338,7 @@ export default function App() {
             {result.effectiveConfiguration.rootNote} {result.effectiveConfiguration.scaleType} · {result.effectiveConfiguration.bpm} BPM · {result.statistics?.arrangementBars ?? "—"} bars · {result.effectiveConfiguration.progressionName}
             {result.effectiveConfiguration.chordSequence.length > 0 && ` (${result.effectiveConfiguration.chordSequence.join(" · ")})`} · Seed {result.seed} · Engine {result.engineVersion ?? "legacy 1.0.0"}
           </p>}
-          {sketch?.pkg === result && <p className="hint">Melody, drums, and track edits are not included in packages, share codes, or bass and chords exports. Use All Tracks MIDI to export the current sketch.</p>}
+          {sketch?.pkg === result && <p className="hint">Melody, pad, drums, and track edits are not included in packages, share codes, or bass and chords exports. Use All Tracks MIDI to export the current sketch.</p>}
         </div>
       </aside>
       <div className="result">
@@ -336,7 +363,7 @@ export default function App() {
           {activeSection && <p><strong>Section behavior · {activeSection.name}</strong> {dimensions.map((dimension) => `${dimension}: ${activeSection.behavior[dimension]}`).join(" · ")}</p>}
           <p><strong>MIDI &amp; humanization</strong> Bass channel {request.channel + 1} · Velocity {request.velocity} · Variation {request.velocityVariation} · Timing {request.timingVariation} ticks · Swing {request.swing} · Accent downbeats {request.accentDownbeats ? "on" : "off"}</p>
           <p><strong>Seed</strong> {request.seed ?? "Random"}</p>
-          {dirty && <p className="snapshot-dirty">Unapplied settings</p>}
+          {showSettingsWarning && <p className="snapshot-dirty">Unapplied settings</p>}
         </div>
       </summary>
           <div className="sound-modules">
@@ -385,7 +412,7 @@ export default function App() {
             </label>
             {selectedPattern && <p className="hint">{selectedPattern.description}</p>}
             <div ref={setPatternPane} />
-            <p className="hint">Generate Sketch replaces all preview tracks. Melody, drums, and track edits are not included in packages, share codes, or bass and chords exports. Use All Tracks MIDI to export the current sketch.</p>
+            <p className="hint">Generate Sketch replaces all preview tracks. Melody, pad, drums, and track edits are not included in packages, share codes, or bass and chords exports. Use All Tracks MIDI to export the current sketch.</p>
           </section>
           </div>
           <div className="settings-details">
@@ -443,12 +470,12 @@ export default function App() {
       </form>
       </div>
         {!result ? <section className="empty card"><p className="eyebrow">YOUR NEXT IDEA STARTS HERE</p><h2>Make room for your next idea.</h2><p>Generate a sketch and press Play, or adjust the settings to shape your sound first.</p></section> : <>
-          {dirty && <p className="warning">Settings changed. The visualization, save, share, and MIDI actions use the previous result. Regenerate to apply changes.</p>}
+          {showSettingsWarning && <p className="warning">Settings changed. The visualization, save, share, and MIDI actions use the previous result. Regenerate to apply changes.</p>}
           {result.effectiveConfiguration.channel === chordExportChannel && <p className="warning" role="status">
             Bass and chords both use MIDI channel 2 in the Bass + Chords export. They may play on the same instrument when routed to the same MIDI destination. Export is still available; change the bass channel and regenerate, or route the tracks separately in your DAW.
           </p>}
           <Preview ref={preview} pkg={result} disabled={busy === "Generating bassline" || busy === "Generating sketch"}
-            playbackPane={playbackPane} generatorPane={generatorPane} patternPane={patternPane} drumDownloadPane={drumDownloadPane}
+            playbackPane={playbackPane} patternPane={patternPane} drumDownloadPane={drumDownloadPane}
             allDownloadPane={allDownloadPane} onPreviewDownload={closeDownloads} sketch={sketch} sketchBusy={busy === "Generating sketch"}
             patternSelection={{ id: patternId, onChange: setPatternId }} onGeneratingChange={setTrackBusy} />
           <section className="card"><p className="eyebrow">THE DETAILS</p><h2>Package overview</h2>

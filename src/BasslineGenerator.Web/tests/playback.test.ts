@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialRequest } from "../src/domain";
 import { PlaybackTransport } from "../src/playback";
+import { generatePad } from "../src/padGenerator";
 import { defaultRoutingProfiles, resolveOutput } from "../src/routingProfiles";
 import type { GenerationPackage } from "../src/types";
 
@@ -75,6 +76,22 @@ afterEach(() => {
 });
 
 describe("preview transport", () => {
+  it("plays generated pad notes through the focused track's browser sound", async () => {
+    const chordNotes = [60, 64, 67].map((midiNote) =>
+      ({ note: "", midiNote, startBeat: 0, durationBeats: 4, velocity: 90 }));
+    const pad = generatePad(chordNotes, 1, 1, "midi2");
+    const transport = new PlaybackTransport(() => {});
+    transport.load(pkg, [], [], { synth1: [], synth2: [], midi1: [], midi2: pad });
+    transport.setTrackSound("midi2", "warmPad");
+    await transport.play();
+    const context = AudioContextMock.instance;
+    expect(context.oscillators).toHaveLength(3);
+    expect(context.oscillators.every((oscillator) => oscillator.type === "triangle")).toBe(true);
+    expect(context.oscillators.map((oscillator) => oscillator.frequency.value))
+      .toEqual(pad.map((note) => 440 * 2 ** ((note.midiNote - 69) / 12)));
+    transport.dispose();
+  });
+
   it("sends per-track programs before MIDI notes, on resume and route changes, but not on loops", async () => {
     const output = new MidiOutputMock();
     const device = output as unknown as MIDIOutput;
