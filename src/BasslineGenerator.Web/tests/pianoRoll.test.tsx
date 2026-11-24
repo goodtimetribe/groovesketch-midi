@@ -146,7 +146,7 @@ describe("piano roll", () => {
 
   it("preserves zoom, paging, note inspection, and selection", async () => {
     const visibility = container.querySelector(".roll-visibility")!;
-    expect(visibility.querySelector("legend")?.textContent).toBe("Tracks");
+    expect(visibility.querySelector("legend")?.textContent).toBe("Tracks & actions");
     expect(visibility.querySelector(":scope > label")?.textContent).toContain("Bars shown");
     await act(async () => button("C2 (36)").click());
     expect(container.textContent).toContain("Selected: C2, beat 0, length 1, velocity 127.");

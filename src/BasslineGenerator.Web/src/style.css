@@ -111,10 +111,11 @@ summary { cursor: pointer; font-weight: 700; }
 .track-controls > label { flex-direction: row; align-items: center; }
 .roll-visibility > label { margin-left: auto; }
 .roll-visibility fieldset { flex: 1 1 100%; gap: 6px; }
-.track-row { display: flex; align-items: center; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.track-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex: 1 1 220px; min-width: 0; }
 .track-row .check { flex: 1 0 auto; white-space: nowrap; }
 .track-row select { width: auto; min-width: 0; flex: 1 1 80px; padding: 5px; }
 .track-row button { padding: 5px 9px; }
+.track-action-hint, .track-actions-guide { flex-basis: 100%; margin: 0; }
 .track-indicator { display: inline-block; width: .8rem; height: .8rem; border: 1px solid #e6ecf5; border-radius: 2px; box-shadow: 0 0 0 1px #101520; }
 .roll-canvas { position: relative; }
 .playhead { position: absolute; top: 26px; bottom: 1px; width: 2px; background: #ffe294; pointer-events: none; }

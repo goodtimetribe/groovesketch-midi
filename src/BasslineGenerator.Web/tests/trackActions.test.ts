@@ -1,12 +1,20 @@
 import { expect, it } from "vitest";
 import {
-  actionDescription, actionableRoles, actionsForRole, defaultActionForRole, legacyMelodyRole,
+  actionButtonLabel, actionDescription, actionLabel, actionableRoles, actionsForRole, defaultActionForRole, legacyMelodyRole,
   trackActionTypes, varyChordNotes, varyRhythmNotes,
 } from "../src/trackActions";
 
 it("uses one documented action model across logical musical roles", () => {
   expect(trackActionTypes).toEqual(["rebuild", "apply", "vary"]);
   expect(Object.keys(actionDescription)).toEqual(trackActionTypes);
+  expect(actionLabel).toEqual({
+    rebuild: "Replace with new content",
+    apply: "Use selected pattern",
+    vary: "Create a variation",
+  });
+  expect(actionButtonLabel("rebuild", "bass")).toBe("Replace Bass");
+  expect(actionButtonLabel("apply", "drums")).toBe("Use Drums Pattern");
+  expect(actionButtonLabel("vary", "lead")).toBe("Create Lead Variation");
   expect(actionableRoles).toEqual(["bass", "chords", "lead", "pad", "drums", "aux-percussion"]);
   expect(defaultActionForRole).toEqual({
     bass: "vary", chords: "rebuild", lead: "rebuild", pad: "rebuild", drums: "apply", "aux-percussion": "apply",
