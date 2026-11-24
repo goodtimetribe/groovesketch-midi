@@ -30,6 +30,13 @@ public sealed class GenerateRequestSchemaFilter(IEnumerable<IPreset> presets) : 
             schema.Properties["bars"].Maximum = 512;
             return;
         }
+        if (context.Type == typeof(MelodyRequest))
+        {
+            SetSuggestions(schema.Properties["style"], MelodyRhythmLibrary.All.Select(preset => preset.Id));
+            schema.Properties["style"].Description += "\n\n" + string.Join("\n\n", MelodyRhythmLibrary.All.Select(preset =>
+                $"- **{preset.Name}** (`{preset.Id}`): {preset.Description} Archetypes: {string.Join(", ", preset.Archetypes)}."));
+            return;
+        }
         if (context.Type != typeof(GenerateRequest)) return;
 
         schema.AdditionalPropertiesAllowed = true;
@@ -86,7 +93,8 @@ public sealed class GenerateExamplesFilter : IOperationFilter
                 ["scaleType"] = new OpenApiString("Major"),
                 ["progressionId"] = new OpenApiString("pop-anthem"),
                 ["sections"] = new OpenApiArray { new OpenApiObject { ["bars"] = new OpenApiInteger(4) } },
-                ["seed"] = new OpenApiInteger(12345)
+                ["seed"] = new OpenApiInteger(12345),
+                ["style"] = new OpenApiString("pop")
             };
             return;
         }

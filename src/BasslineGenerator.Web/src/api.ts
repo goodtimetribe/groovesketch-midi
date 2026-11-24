@@ -40,6 +40,7 @@ export interface MelodyGenerateRequest {
   progressionId: string;
   sections: { bars: number }[];
   seed: number;
+  style?: string;
 }
 
 export const api = {

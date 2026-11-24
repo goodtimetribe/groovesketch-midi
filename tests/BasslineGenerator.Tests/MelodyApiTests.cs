@@ -31,12 +31,37 @@ public class MelodyApiTests
         Assert.Equal(beforePackage!.Notes, afterPackage!.Notes);
     }
 
+    [Fact]
+    public async Task AppliesAndDiscoversMelodyStylePresets()
+    {
+        await using var factory = new WebApplicationFactory<Program>();
+        using var client = factory.CreateClient();
+        var request = new { rootNote = "C", scaleType = "Major", progressionId = "pop-anthem",
+            sections = new[] { new { bars = 4 } }, seed = 12345, style = "dreamy" };
+        var balancedRequest = new { request.rootNote, request.scaleType, request.progressionId,
+            request.sections, request.seed, style = "balanced" };
+
+        using var response = await client.PostAsJsonAsync("/api/melody", request);
+        using var balanced = await client.PostAsJsonAsync("/api/melody", balancedRequest);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var dreamyNotes = await response.Content.ReadFromJsonAsync<NoteData[]>();
+        var balancedNotes = await balanced.Content.ReadFromJsonAsync<NoteData[]>();
+        Assert.NotEqual(dreamyNotes, balancedNotes);
+        Assert.All(dreamyNotes!, note => Assert.Equal(78, note.Velocity));
+
+        var styles = await client.GetFromJsonAsync<MelodyStyleResponse[]>("/api/melody-styles");
+        Assert.NotNull(styles);
+        Assert.Contains(styles, style => style.Id == "dreamy" && style.RhythmArchetypes.Contains("Sparse"));
+        Assert.Contains(styles, style => style.Id == "reggae" && style.RhythmArchetypes.Contains("Offbeat"));
+    }
+
     [Theory]
     [InlineData("""{"rootNote":"secret-invalid","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":4}],"seed":1}""")]
     [InlineData("""{"rootNote":"C","scaleType":"Major","progressionId":"unknown","sections":[{"bars":4}],"seed":1}""")]
     [InlineData("""{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[],"seed":1}""")]
     [InlineData("""{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[null],"seed":1}""")]
     [InlineData("""{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":513}],"seed":1}""")]
+    [InlineData("""{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":4}],"seed":1,"style":"unknown"}""")]
     [InlineData("""{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":4}]}""")]
     public async Task RejectsInvalidRequestsWithoutEchoingInput(string json)
     {
@@ -58,5 +83,9 @@ public class MelodyApiTests
         var operation = document.RootElement.GetProperty("paths").GetProperty("/api/melody").GetProperty("post");
         var example = operation.GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("example");
         Assert.Equal("pop-anthem", example.GetProperty("progressionId").GetString());
+        Assert.Equal("pop", example.GetProperty("style").GetString());
+        var style = document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("MelodyRequest")
+            .GetProperty("properties").GetProperty("style");
+        Assert.Contains("dreamy", style.GetProperty("x-suggested-values").EnumerateArray().Select(value => value.GetString()));
     }
 }

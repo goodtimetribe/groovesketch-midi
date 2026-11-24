@@ -29,6 +29,11 @@ public sealed class MelodyRequest
     /// <example>12345</example>
     [Required]
     public int? Seed { get; set; }
+
+    /// <summary>Optional melody rhythm preset ID. Defaults to Balanced.</summary>
+    /// <example>pop</example>
+    [MelodyStyle]
+    public string? Style { get; set; }
 }
 
 public sealed class MelodySectionRequest
@@ -43,6 +48,12 @@ public sealed class MelodyProgressionAttribute : ValidationAttribute
 {
     public override bool IsValid(object? value) => value is null || value is string id
         && ChordProgressionLibrary.All.Any(progression => progression.Id == id);
+}
+
+public sealed class MelodyStyleAttribute : ValidationAttribute
+{
+    public override bool IsValid(object? value) =>
+        value is null || value is string id && MelodyRhythmLibrary.Find(id) is not null;
 }
 
 public sealed class MelodySectionsAttribute : ValidationAttribute

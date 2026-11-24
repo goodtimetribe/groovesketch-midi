@@ -64,6 +64,53 @@ public class MelodyGeneratorTests
     }
 
     [Fact]
+    public void StylePresetsProvideDistinctArchetypesAndValidRepeatingRhythms()
+    {
+        var generator = new MelodyGenerator();
+        var progression = ChordProgressionLibrary.Find("pop-anthem")!;
+        Assert.Equal(Enum.GetValues<MelodyRhythmArchetype>().Length,
+            MelodyRhythmLibrary.RhythmTemplates.Select(template => template.Archetype).Distinct().Count());
+        Assert.True(MelodyRhythmLibrary.All.Count > Enum.GetValues<SongWorld>().Length);
+
+        foreach (var preset in MelodyRhythmLibrary.All)
+        {
+            var notes = generator.Generate("C", "Major", progression, FourBars, 12345, preset.Style);
+            var firstPhrase = notes.TakeWhile(note => note.Start < 2 * MusicConstants.TicksPerBar).ToArray();
+            var secondPhrase = notes.Skip(firstPhrase.Length).ToArray();
+            Assert.NotEmpty(firstPhrase);
+            Assert.Equal(firstPhrase.Length, secondPhrase.Length);
+            Assert.Equal(firstPhrase.Select(note => (note.Start, note.Length)),
+                secondPhrase.Select(note => (note.Start - 2 * MusicConstants.TicksPerBar, note.Length)));
+            Assert.All(notes, note =>
+            {
+                Assert.InRange(note.Pitch, 72, 84);
+                Assert.Equal(preset.Velocity, note.Velocity);
+            });
+        }
+
+        var balanced = generator.Generate("C", "Major", progression, FourBars, 12345);
+        var dreamy = generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Dreamy);
+        Assert.NotEqual(balanced.Select(note => note.Start), dreamy.Select(note => note.Start));
+        Assert.Equal(balanced, generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Balanced));
+    }
+
+    [Fact]
+    public void RhythmTemplatesUseOrderedUniqueSixteenthStepsInTwoBars()
+    {
+        Assert.NotEmpty(MelodyRhythmLibrary.All);
+        Assert.All(MelodyRhythmLibrary.RhythmTemplates, template =>
+        {
+            Assert.Equal(2, template.Bars.Length);
+            Assert.All(template.Bars, bar =>
+            {
+                Assert.NotEmpty(bar);
+                Assert.True(bar.SequenceEqual(bar.Distinct().Order()));
+                Assert.All(bar, step => Assert.InRange(step, 0, 15));
+            });
+        });
+    }
+
+    [Fact]
     public void AllSupportedHarmoniesEnforceChordTonesScaleAndMotion()
     {
         var generator = new MelodyGenerator();

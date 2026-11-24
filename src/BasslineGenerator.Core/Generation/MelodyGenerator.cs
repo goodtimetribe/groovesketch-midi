@@ -11,25 +11,10 @@ public sealed class MelodyGenerator
 {
     private const int LowestPitch = 72;
     private const int HighestPitch = 84;
-    private const int Velocity = 88;
-    private const int NoteLength = 2;
-
-    // Each template contains four sixteenth-note onsets per bar.
-    private static readonly int[][][] Rhythms =
-    [
-        [[0, 3, 6, 10], [0, 4, 7, 11]],
-        [[0, 4, 7, 11], [0, 3, 6, 10]],
-        [[0, 2, 7, 12], [0, 3, 8, 11]],
-        [[0, 3, 8, 11], [0, 2, 7, 12]],
-        [[0, 5, 8, 11], [0, 3, 7, 12]],
-        [[0, 3, 7, 12], [0, 5, 8, 11]],
-        [[0, 2, 6, 11], [0, 4, 9, 12]],
-        [[0, 4, 9, 12], [0, 2, 6, 11]]
-    ];
 
     /// <summary>Generates notes in absolute ticks; section boundaries do not reset the motif.</summary>
     public IReadOnlyList<BassNote> Generate(string rootNote, string scaleType, ChordProgression progression,
-        IReadOnlyList<SongSection> sections, int seed)
+        IReadOnlyList<SongSection> sections, int seed, MelodyStyle style = MelodyStyle.Balanced)
     {
         ArgumentNullException.ThrowIfNull(progression);
         ArgumentNullException.ThrowIfNull(sections);
@@ -42,26 +27,32 @@ public sealed class MelodyGenerator
         var scale = ScaleLibrary.GetScale(rootNote, scaleType);
         var scalePitches = Enumerable.Range(LowestPitch, HighestPitch - LowestPitch + 1)
             .Where(pitch => scale.Contains(pitch % 12)).ToArray();
-        var rhythm = Rhythms[CreateRandom(seed, "melody-rhythm-v1").Next(Rhythms.Length)];
-        var random = CreateRandom(seed, "melody-pitch-v1");
+        var preset = MelodyRhythmLibrary.Find(style);
+        var rhythms = MelodyRhythmLibrary.TemplatesFor(style);
+        var rhythmDomain = style == MelodyStyle.Balanced ? "melody-rhythm-v1" : $"melody-rhythm-v1:{style}";
+        var rhythm = rhythms[CreateRandom(seed, rhythmDomain).Next(rhythms.Count)];
+        var pitchDomain = style == MelodyStyle.Balanced ? "melody-pitch-v1" : $"melody-pitch-v1:{style}";
+        var random = CreateRandom(seed, pitchDomain);
         var index = Array.IndexOf(scalePitches, scalePitches.OrderBy(pitch => Math.Abs(pitch - 78)).ThenBy(pitch => pitch).First());
         index = Math.Clamp(index + random.Next(-1, 2), 0, scalePitches.Length - 1);
-        int[] movements = [-2, -1, -1, 0, 1, 1, 2];
-        var targets = new int[8];
+        var targets = new int[rhythm.Bars.Sum(bar => bar.Length)];
         for (var i = 0; i < targets.Length; i++)
         {
-            if (i > 0) index = Math.Clamp(index + movements[random.Next(movements.Length)], 0, scalePitches.Length - 1);
+            if (i > 0) index = Math.Clamp(index + preset.Movements[random.Next(preset.Movements.Length)], 0, scalePitches.Length - 1);
             targets[i] = scalePitches[index];
         }
 
-        var motif = new int[8];
+        var motif = new int[targets.Length];
         int? previous = null;
-        for (var i = 0; i < motif.Length; i++)
+        var targetIndex = 0;
+        for (var bar = 0; bar < rhythm.Bars.Length; bar++)
         {
-            var bar = i / 4;
-            motif[i] = SelectPitch(targets[i], previous, rhythm[bar][i % 4],
-                tonic, progression.Chords[bar % progression.Chords.Count], scale);
-            previous = motif[i];
+            foreach (var step in rhythm.Bars[bar])
+            {
+                motif[targetIndex] = SelectPitch(targets[targetIndex], previous, step,
+                    tonic, progression.Chords[bar % progression.Chords.Count], scale);
+                previous = motif[targetIndex++];
+            }
         }
 
         var notes = new List<BassNote>();
@@ -71,12 +62,16 @@ public sealed class MelodyGenerator
         {
             var phraseBar = bar % 2;
             var chord = progression.Chords[bar % progression.Chords.Count];
-            for (var i = 0; i < 4; i++)
+            var motifOffset = rhythm.Bars.Take(phraseBar).Sum(onsets => onsets.Length);
+            var onsets = rhythm.Bars[phraseBar];
+            for (var i = 0; i < onsets.Length; i++)
             {
-                var step = rhythm[phraseBar][i];
-                var pitch = SelectPitch(motif[phraseBar * 4 + i], previous, step, tonic, chord, scale);
+                var step = onsets[i];
+                var pitch = SelectPitch(motif[motifOffset + i], previous, step, tonic, chord, scale);
                 var start = (long)bar * MusicConstants.TicksPerBar + step * MusicConstants.Sixteenth;
-                notes.Add(new BassNote(pitch, start, NoteLength * MusicConstants.Sixteenth, Velocity));
+                var nextStep = i + 1 < onsets.Length ? onsets[i + 1] : 16;
+                var length = Math.Max(1, Math.Min(preset.NoteLength, nextStep - step)) * MusicConstants.Sixteenth;
+                notes.Add(new BassNote(pitch, start, length, preset.Velocity));
                 previous = pitch;
             }
         }
