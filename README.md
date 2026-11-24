@@ -230,7 +230,7 @@ as the response media type before executing to download MIDI directly.
 | `GET /api/health` | Returns `{"status":"healthy","version":"1.0.0"}`. |
 | `GET /api/presets` | Returns `["Dreamy","Pop","Acid","Rave"]`. |
 | `GET /api/progressions` | Returns progression IDs, names, descriptions, chord sequences, moods and suggested uses. |
-| `GET /api/melody-styles` | Returns melody rhythm preset IDs, descriptions and rhythm archetypes. |
+| `GET /api/melody-styles` | Returns melody rhythm preset IDs, descriptions and rhythm families. |
 | `POST /api/melody` | Returns deterministic, monophonic melody notes in beats for a root, scale, resolved progression ID, section lengths, seed and optional style preset. |
 | `POST /api/generate` | Returns a downloadable `bassline.mid` (`audio/midi`) by default, or effective generation metadata (`application/json`) when requested. |
 | `POST /api/generate/package` | Same request as `/api/generate`; returns a JSON generation package (no MIDI). |
@@ -241,11 +241,20 @@ as the response media type before executing to download MIDI directly.
 | `POST /api/share/decode` | `{"shareCode":"..."}` in, package out. |
 
 For example, `/api/melody` accepts
-`{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":4}],"seed":12345,"style":"pop"}`.
+`{"rootNote":"C","scaleType":"Major","progressionId":"pop-anthem","sections":[{"bars":4}],"seed":12345,"style":"pop-pulse"}`.
 The optional `style` accepts a preset ID returned by `/api/melody-styles`; it
-defaults to `balanced`. Presets combine rhythm archetypes such as steady,
-syncopated, sparse, offbeat, running, and call-and-response with genre-specific
-motion, articulation and velocity.
+defaults to `balanced`. The style library is grouped into five rhythm families:
+
+- **Straight:** Driving Eighths, Pop Pulse, Four-on-the-Floor Melody
+- **Syncopated:** Funk Stabs, Offbeat Hits, Broken Groove
+- **Sparse:** Ambient, Cinematic, Drone Support
+- **Fast Motion:** Arpeggiated, Sixteenth Pulse, Sequence Style
+- **Swing:** Jazz Swing, Shuffle, Triplet Groove
+
+These presets alter onset placement, articulation and velocity while retaining
+the same deterministic pitch motif for the same seed and harmony. The existing
+web workflow maps Dreamy, Pop, Acid, and Rave bass styles to suitable melody
+presets automatically.
 Section lengths must each be 1–512 bars, with at most 4096 bars total.
 Melody generation does not modify or persist the bass package.
 

@@ -37,22 +37,24 @@ public class MelodyApiTests
         await using var factory = new WebApplicationFactory<Program>();
         using var client = factory.CreateClient();
         var request = new { rootNote = "C", scaleType = "Major", progressionId = "pop-anthem",
-            sections = new[] { new { bars = 4 } }, seed = 12345, style = "dreamy" };
+            sections = new[] { new { bars = 4 } }, seed = 12345, style = "ambient" };
         var balancedRequest = new { request.rootNote, request.scaleType, request.progressionId,
             request.sections, request.seed, style = "balanced" };
 
         using var response = await client.PostAsJsonAsync("/api/melody", request);
         using var balanced = await client.PostAsJsonAsync("/api/melody", balancedRequest);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var dreamyNotes = await response.Content.ReadFromJsonAsync<NoteData[]>();
+        var ambientNotes = await response.Content.ReadFromJsonAsync<NoteData[]>();
         var balancedNotes = await balanced.Content.ReadFromJsonAsync<NoteData[]>();
-        Assert.NotEqual(dreamyNotes, balancedNotes);
-        Assert.All(dreamyNotes!, note => Assert.Equal(78, note.Velocity));
+        Assert.NotEqual(ambientNotes, balancedNotes);
+        Assert.All(ambientNotes!, note => Assert.Equal(76, note.Velocity));
 
         var styles = await client.GetFromJsonAsync<MelodyStyleResponse[]>("/api/melody-styles");
         Assert.NotNull(styles);
-        Assert.Contains(styles, style => style.Id == "dreamy" && style.RhythmArchetypes.Contains("Sparse"));
-        Assert.Contains(styles, style => style.Id == "reggae" && style.RhythmArchetypes.Contains("Offbeat"));
+        Assert.Contains(styles, style => style.Id == "ambient" && style.RhythmArchetype == "Sparse");
+        Assert.Contains(styles, style => style.Id == "funk-stabs" && style.RhythmArchetype == "Syncopated");
+        Assert.Contains(styles, style => style.Id == "sixteenth-pulse" && style.RhythmArchetype == "FastMotion");
+        Assert.Contains(styles, style => style.Id == "jazz-swing" && style.RhythmArchetype == "Swing");
     }
 
     [Theory]
@@ -83,9 +85,9 @@ public class MelodyApiTests
         var operation = document.RootElement.GetProperty("paths").GetProperty("/api/melody").GetProperty("post");
         var example = operation.GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("example");
         Assert.Equal("pop-anthem", example.GetProperty("progressionId").GetString());
-        Assert.Equal("pop", example.GetProperty("style").GetString());
+        Assert.Equal("pop-pulse", example.GetProperty("style").GetString());
         var style = document.RootElement.GetProperty("components").GetProperty("schemas").GetProperty("MelodyRequest")
             .GetProperty("properties").GetProperty("style");
-        Assert.Contains("dreamy", style.GetProperty("x-suggested-values").EnumerateArray().Select(value => value.GetString()));
+        Assert.Contains("ambient", style.GetProperty("x-suggested-values").EnumerateArray().Select(value => value.GetString()));
     }
 }

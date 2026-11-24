@@ -11,6 +11,7 @@ public sealed class MelodyGenerator
 {
     private const int LowestPitch = 72;
     private const int HighestPitch = 84;
+    private static readonly int[] PitchMovements = [-2, -1, -1, 0, 1, 1, 2];
 
     /// <summary>Generates notes in absolute ticks; section boundaries do not reset the motif.</summary>
     public IReadOnlyList<BassNote> Generate(string rootNote, string scaleType, ChordProgression progression,
@@ -31,14 +32,13 @@ public sealed class MelodyGenerator
         var rhythms = MelodyRhythmLibrary.TemplatesFor(style);
         var rhythmDomain = style == MelodyStyle.Balanced ? "melody-rhythm-v1" : $"melody-rhythm-v1:{style}";
         var rhythm = rhythms[CreateRandom(seed, rhythmDomain).Next(rhythms.Count)];
-        var pitchDomain = style == MelodyStyle.Balanced ? "melody-pitch-v1" : $"melody-pitch-v1:{style}";
-        var random = CreateRandom(seed, pitchDomain);
+        var random = CreateRandom(seed, "melody-pitch-v1");
         var index = Array.IndexOf(scalePitches, scalePitches.OrderBy(pitch => Math.Abs(pitch - 78)).ThenBy(pitch => pitch).First());
         index = Math.Clamp(index + random.Next(-1, 2), 0, scalePitches.Length - 1);
         var targets = new int[rhythm.Bars.Sum(bar => bar.Length)];
         for (var i = 0; i < targets.Length; i++)
         {
-            if (i > 0) index = Math.Clamp(index + preset.Movements[random.Next(preset.Movements.Length)], 0, scalePitches.Length - 1);
+            if (i > 0) index = Math.Clamp(index + PitchMovements[random.Next(PitchMovements.Length)], 0, scalePitches.Length - 1);
             targets[i] = scalePitches[index];
         }
 
@@ -49,7 +49,8 @@ public sealed class MelodyGenerator
         {
             foreach (var step in rhythm.Bars[bar])
             {
-                motif[targetIndex] = SelectPitch(targets[targetIndex], previous, step,
+                var pitchStep = style == MelodyStyle.Balanced ? step : targetIndex % 4 * 4;
+                motif[targetIndex] = SelectPitch(targets[targetIndex], previous, pitchStep,
                     tonic, progression.Chords[bar % progression.Chords.Count], scale);
                 previous = motif[targetIndex++];
             }
@@ -67,7 +68,8 @@ public sealed class MelodyGenerator
             for (var i = 0; i < onsets.Length; i++)
             {
                 var step = onsets[i];
-                var pitch = SelectPitch(motif[motifOffset + i], previous, step, tonic, chord, scale);
+                var pitchStep = style == MelodyStyle.Balanced ? step : (i + phraseBar * 4) % 4 * 4;
+                var pitch = SelectPitch(motif[motifOffset + i], previous, pitchStep, tonic, chord, scale);
                 var start = (long)bar * MusicConstants.TicksPerBar + step * MusicConstants.Sixteenth;
                 var nextStep = i + 1 < onsets.Length ? onsets[i + 1] : 16;
                 var length = Math.Max(1, Math.Min(preset.NoteLength, nextStep - step)) * MusicConstants.Sixteenth;

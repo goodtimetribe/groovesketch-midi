@@ -70,7 +70,20 @@ public class MelodyGeneratorTests
         var progression = ChordProgressionLibrary.Find("pop-anthem")!;
         Assert.Equal(Enum.GetValues<MelodyRhythmArchetype>().Length,
             MelodyRhythmLibrary.RhythmTemplates.Select(template => template.Archetype).Distinct().Count());
-        Assert.True(MelodyRhythmLibrary.All.Count > Enum.GetValues<SongWorld>().Length);
+        Assert.Equal(16, MelodyRhythmLibrary.All.Count);
+        string[] expected =
+        [
+            "driving-eighths", "pop-pulse", "four-on-the-floor-melody",
+            "funk-stabs", "offbeat-hits", "broken-groove",
+            "ambient", "cinematic", "drone-support",
+            "arpeggiated", "sixteenth-pulse", "sequence-style",
+            "jazz-swing", "shuffle", "triplet-groove"
+        ];
+        Assert.Equal(expected, MelodyRhythmLibrary.All.Where(preset => preset.Style != MelodyStyle.Balanced)
+            .Select(preset => preset.Id));
+        Assert.All(Enum.GetValues<MelodyRhythmArchetype>(), archetype =>
+            Assert.Equal(3, MelodyRhythmLibrary.All.Count(preset => preset.Style != MelodyStyle.Balanced
+                && preset.Archetype == archetype)));
 
         foreach (var preset in MelodyRhythmLibrary.All)
         {
@@ -89,8 +102,10 @@ public class MelodyGeneratorTests
         }
 
         var balanced = generator.Generate("C", "Major", progression, FourBars, 12345);
-        var dreamy = generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Dreamy);
-        Assert.NotEqual(balanced.Select(note => note.Start), dreamy.Select(note => note.Start));
+        var ambient = generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Ambient);
+        var funk = generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.FunkStabs);
+        Assert.NotEqual(ambient.Select(note => (note.Start, note.Length)), funk.Select(note => (note.Start, note.Length)));
+        Assert.Equal(ambient.Select(note => note.Pitch), funk.Select(note => note.Pitch));
         Assert.Equal(balanced, generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Balanced));
     }
 

@@ -61,7 +61,7 @@ public sealed class BasslineController(
     [ProducesResponseType<MelodyStyleResponse[]>(StatusCodes.Status200OK)]
     public ActionResult<MelodyStyleResponse[]> MelodyStyles() => Ok(MelodyRhythmLibrary.All.Select(preset =>
         new MelodyStyleResponse(preset.Id, preset.Name, preset.Description,
-            preset.Archetypes.Select(archetype => archetype.ToString()).ToArray())).ToArray());
+            preset.Archetype.ToString())).ToArray());
 
     /// <summary>Generates a deterministic, chord-aware melody for preview.</summary>
     /// <remarks>Returns notes in beats without storing the request or generated content. The resolved progression ID and seed must be supplied.</remarks>

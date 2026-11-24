@@ -34,7 +34,7 @@ public sealed class GenerateRequestSchemaFilter(IEnumerable<IPreset> presets) : 
         {
             SetSuggestions(schema.Properties["style"], MelodyRhythmLibrary.All.Select(preset => preset.Id));
             schema.Properties["style"].Description += "\n\n" + string.Join("\n\n", MelodyRhythmLibrary.All.Select(preset =>
-                $"- **{preset.Name}** (`{preset.Id}`): {preset.Description} Archetypes: {string.Join(", ", preset.Archetypes)}."));
+                $"- **{preset.Name}** (`{preset.Id}`): {preset.Description} Rhythm family: {preset.Archetype}."));
             return;
         }
         if (context.Type != typeof(GenerateRequest)) return;
@@ -94,7 +94,7 @@ public sealed class GenerateExamplesFilter : IOperationFilter
                 ["progressionId"] = new OpenApiString("pop-anthem"),
                 ["sections"] = new OpenApiArray { new OpenApiObject { ["bars"] = new OpenApiInteger(4) } },
                 ["seed"] = new OpenApiInteger(12345),
-                ["style"] = new OpenApiString("pop")
+                ["style"] = new OpenApiString("pop-pulse")
             };
             return;
         }
