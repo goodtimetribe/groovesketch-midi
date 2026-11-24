@@ -3,7 +3,7 @@ import type { PlaybackState, PlaybackTransport } from "./playback";
 import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "./trackView";
 import { melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
 import { actionLabel, actionsForRole, defaultActionForRole, legacyMelodyRole, roleLabel,
-  type ActionableRole, type TrackAction } from "./trackActions";
+  actionButtonLabel, actionDescription, type ActionableRole, type TrackAction } from "./trackActions";
 import type { GenerationPackage, NoteData } from "./types";
 
 export type FocusTrack = MelodicTrackId | "drums";
@@ -20,11 +20,26 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
   const assignedRole = track.kind === "track" ? legacyMelodyRole(track.role) : "drums";
   const [role, setRole] = useState<ActionableRole | "">(assignedRole ?? "");
   const [action, setAction] = useState<TrackAction>(() => assignedRole ? defaultActionForRole[assignedRole] : "rebuild");
+  const [confirmReplacement, setConfirmReplacement] = useState(false);
   useEffect(() => {
     setRole(assignedRole ?? "");
     if (assignedRole) setAction(defaultActionForRole[assignedRole]);
+    setConfirmReplacement(false);
   }, [pkg, assignedRole]);
   const trackName = id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : id === "midi2" ? "Midi2" : "Drums";
+  const performAction = (target: FocusTrack) => {
+    if (!role) return;
+    if (action === "rebuild" && !confirmReplacement) {
+      setConfirmReplacement(true);
+      return;
+    }
+    workflow?.generate(target, role, action);
+    setConfirmReplacement(false);
+  };
+  const buttonLabel = role
+    ? confirmReplacement ? `Confirm ${actionButtonLabel(action, role)}` : actionButtonLabel(action, role)
+    : "Choose Role";
+  const actionHintId = `track-action-hint-${track.id}`;
   return <div className="track-row">
     <label className="check">
       <input type="checkbox" checked={track.visible} onChange={(event) => onVisibility(event.target.checked)} />
@@ -37,6 +52,7 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
         if (next && next !== "drums" && next !== "aux-percussion") {
           setRole(next);
           setAction(defaultActionForRole[next]);
+          setConfirmReplacement(false);
         }
       }}>
         <option value="" disabled>Choose role</option>
@@ -44,14 +60,21 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
         <option value="lead">Lead</option><option value="pad">Pad</option>
       </select>
       {role && <select aria-label={`${roleLabel[role]} action`} value={action} disabled={workflow.busy || workflow.disabled}
-        onChange={(event) => setAction(event.target.value as TrackAction)}>
+        aria-describedby={actionHintId}
+        onChange={(event) => {
+          setAction(event.target.value as TrackAction);
+          setConfirmReplacement(false);
+        }}>
         {actionsForRole[role].map((item) => <option key={item} value={item}>{actionLabel[item]}</option>)}
       </select>}
-      <button type="button" aria-label={role ? `${actionLabel[action]} ${roleLabel[role]} on ${trackName}` : `Choose a role for ${trackName}`}
+      <button type="button" aria-label={role ? `${buttonLabel} on ${trackName}` : `Choose a role for ${trackName}`}
         disabled={workflow.busy || workflow.disabled || !role}
-        onClick={() => { if (role) workflow.generate(id, role, action); }}>
-        {role ? `${actionLabel[action]} ${roleLabel[role]}` : "Choose Role"}
+        onClick={() => performAction(id)}>
+        {buttonLabel}
       </button>
+      {role && <span id={actionHintId} className="hint track-action-hint" aria-live="polite">
+        {confirmReplacement ? "This replaces the current notes. Select the button again to confirm." : actionDescription[action]}
+      </span>}
     </>}
     {workflow && track.kind === "drumGroup" && <>
       <select aria-label="Drums role" value={role} disabled={workflow.busy || workflow.disabled} onChange={(event) => {
@@ -59,20 +82,28 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
         if (next === "drums" || next === "aux-percussion") {
           setRole(next);
           setAction(defaultActionForRole[next]);
+          setConfirmReplacement(false);
         }
       }}>
         <option value="drums">Drums</option><option value="aux-percussion">Aux Percussion</option>
       </select>
       <select aria-label={role === "aux-percussion" ? "Aux Percussion action" : "Drums action"} value={action}
-        disabled={workflow.busy || workflow.disabled} onChange={(event) => setAction(event.target.value as TrackAction)}>
+        disabled={workflow.busy || workflow.disabled} aria-describedby={actionHintId}
+        onChange={(event) => {
+          setAction(event.target.value as TrackAction);
+          setConfirmReplacement(false);
+        }}>
         {actionsForRole[role as "drums" | "aux-percussion"].map((item) =>
           <option key={item} value={item}>{actionLabel[item]}</option>)}
       </select>
-      <button type="button" aria-label={`${actionLabel[action]} ${roleLabel[role as ActionableRole]} on Drums`}
+      <button type="button" aria-label={`${buttonLabel} on Drums`}
         disabled={workflow.busy || workflow.disabled || !workflow.patternSelected}
-        onClick={() => workflow.generate("drums", role as "drums" | "aux-percussion", action)}>
-        {actionLabel[action]} {roleLabel[role as ActionableRole]}
+        onClick={() => performAction("drums")}>
+        {buttonLabel}
       </button>
+      <span id={actionHintId} className="hint track-action-hint">
+        {workflow.patternSelected ? actionDescription[action] : "Select a drum pattern to use or vary percussion."}
+      </span>
     </>}
   </div>;
 }
@@ -192,7 +223,8 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     </div>
     </details>
     <div className="track-controls roll-visibility">
-      <fieldset><legend>Tracks</legend>
+      <fieldset><legend>Tracks &amp; actions</legend>
+        <p className="hint track-actions-guide">Choose a role, choose an outcome, then apply it to that track. Other tracks stay unchanged.</p>
         {tracks.map((track) => <TrackRow key={track.id} track={track} pkg={pkg} workflow={workflow}
           onVisibility={(enabled) => {
             transport.setTrackEnabled(track.kind === "drumGroup" ? "drums" : track.hardwareTrackId, enabled);

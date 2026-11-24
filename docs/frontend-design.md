@@ -4,12 +4,13 @@
 
 **A desktop-first creative workspace for making a bassline, inspecting it, refining its parameters, and taking MIDI into a DAW.** The app is a client of the existing stateless API; no API implementation or backend changes are assumed.
 
-The central creative loop is **set the musical context → Rebuild/Apply/Vary → inspect → adjust → download MIDI**. A musician can save the generated package as a local JSON file, reopen it, or share a portable code. The workspace favors a few understandable controls first, with detailed behavior and MIDI controls available when needed.
+The central creative loop is **set the musical context → choose a track outcome → inspect → adjust → download MIDI**. A musician can save the generated package as a local JSON file, reopen it, or share a portable code. The workspace favors a few understandable controls first, with detailed behavior and MIDI controls available when needed.
 
-All track actions use logical musical roles rather than device destinations:
-**Rebuild** generates from scratch, **Apply** applies a pattern/style/sound or
-setting without replacing unrelated content, and **Vary** preserves the
-current intent while creating a related version. Hardware routing determines
+All track actions use logical musical roles rather than device destinations.
+The interface offers **Replace with new content**, **Use selected pattern**, and
+**Create a variation**. It explains how each outcome affects the selected role;
+replacement requires a second confirmation so existing ideas are not destroyed
+with an accidental click. Hardware routing determines
 where the resulting role is heard; it is not the target of the action.
 Current defaults are intentionally unchanged: Bass varies, Chords/Lead/Pad
 rebuild deterministically, and Drums/Aux Percussion apply a selected pattern.

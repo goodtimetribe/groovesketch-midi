@@ -109,19 +109,22 @@ sketch remains intact if any part fails. A blank seed is chosen once and shown
 in the resulting settings so the sketch can be reproduced with the same pattern.
 Melody, pad, drums, and subsequent track edits are not included in packages,
 share codes, or bass or bass-and-chords MIDI exports.
-Track actions use one vocabulary based on the musical role:
+Track actions are described by the outcome they create, with the underlying
+technical action kept available in the action model:
 
-- **Rebuild** generates fresh content from the current musical settings. The
-  default Chords, Lead, and Pad actions rebuild deterministically.
-- **Apply** applies a selected pattern, style, sound, or setting without
+- **Replace with new content (Rebuild)** generates fresh notes from the current
+  musical settings. This destructive action requires confirmation. It is the
+  default for Chords, Lead, and Pad.
+- **Use selected pattern (Apply)** applies a pattern without
   replacing unrelated content. Drum-pattern selection applies independently to
   **Drums** and **Aux Percussion**.
-- **Vary** creates a related version while retaining the role's musical intent.
+- **Create a variation (Vary)** creates a related version while retaining the
+  role's musical intent.
   The default Bass action creates a variation; variations are also available for
   chords, lead, pad, drums, and auxiliary percussion.
 
-Above the piano roll, choose a logical role and the action, then use the labeled
-button. The destination track remains where that content is placed for
+Above the piano roll, choose a logical role and the intended outcome, then use
+the labeled button. Each choice explains its scope. The destination track remains where that content is placed for
 playback and export; changing hardware routing does not change the role action.
 Focus controls inspection and ghosting independently of generation. The old
 “regenerate” controls map to these defaults without changing behavior: Bass is

@@ -7,16 +7,22 @@ export const actionableRoles = ["bass", "chords", "lead", "pad", "drums", "aux-p
 export type ActionableRole = typeof actionableRoles[number];
 
 export const actionLabel: Record<TrackAction, string> = {
-  rebuild: "Rebuild",
-  apply: "Apply",
-  vary: "Vary",
+  rebuild: "Replace with new content",
+  apply: "Use selected pattern",
+  vary: "Create a variation",
 };
 
 export const actionDescription: Record<TrackAction, string> = {
-  rebuild: "Generate new content from the current musical settings.",
-  apply: "Apply a pattern, style, sound, or setting without replacing other content.",
-  vary: "Create a related variation that preserves the current musical intent.",
+  rebuild: "Replace this track's existing content with newly generated notes.",
+  apply: "Use the selected pattern for this role without changing other tracks.",
+  vary: "Create a related version of this role while keeping its musical intent.",
 };
+
+export function actionButtonLabel(action: TrackAction, role: ActionableRole): string {
+  if (action === "rebuild") return `Replace ${roleLabel[role]}`;
+  if (action === "apply") return `Use ${roleLabel[role]} Pattern`;
+  return `Create ${roleLabel[role]} Variation`;
+}
 
 export const actionsForRole: Record<ActionableRole, readonly TrackAction[]> = {
   bass: ["rebuild", "vary"],

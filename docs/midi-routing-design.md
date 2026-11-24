@@ -30,11 +30,11 @@ a sampler, or hardware; none of those device names belong in the role model.
 
 Actions target these logical roles, not the output used to audition them:
 
-| Action | Meaning |
-| --- | --- |
-| **Rebuild** | Generate new content from the current musical context. |
-| **Apply** | Apply a pattern, style, sound, or setting while preserving unrelated content. |
-| **Vary** | Produce a related variation that keeps the role's musical intent. |
+| Task-oriented label | Internal action | Meaning |
+| --- | --- | --- |
+| **Replace with new content** | Rebuild | Generate and replace the role's notes; the UI requires confirmation. |
+| **Use selected pattern** | Apply | Apply the selected pattern while preserving unrelated content. |
+| **Create a variation** | Vary | Produce a related variation that keeps the role's musical intent. |
 
 Current defaults preserve the workflow that predates this vocabulary: Bass
 uses **Vary**, Chords/Lead/Pad use deterministic **Rebuild**, and Drums/Aux
