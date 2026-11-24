@@ -64,6 +64,68 @@ public class MelodyGeneratorTests
     }
 
     [Fact]
+    public void StylePresetsProvideDistinctArchetypesAndValidRepeatingRhythms()
+    {
+        var generator = new MelodyGenerator();
+        var progression = ChordProgressionLibrary.Find("pop-anthem")!;
+        Assert.Equal(Enum.GetValues<MelodyRhythmArchetype>().Length,
+            MelodyRhythmLibrary.RhythmTemplates.Select(template => template.Archetype).Distinct().Count());
+        Assert.Equal(16, MelodyRhythmLibrary.All.Count);
+        string[] expected =
+        [
+            "driving-eighths", "pop-pulse", "four-on-the-floor-melody",
+            "funk-stabs", "offbeat-hits", "broken-groove",
+            "ambient", "cinematic", "drone-support",
+            "arpeggiated", "sixteenth-pulse", "sequence-style",
+            "jazz-swing", "shuffle", "triplet-groove"
+        ];
+        Assert.Equal(expected, MelodyRhythmLibrary.All.Where(preset => preset.Style != MelodyStyle.Balanced)
+            .Select(preset => preset.Id));
+        Assert.All(Enum.GetValues<MelodyRhythmArchetype>(), archetype =>
+            Assert.Equal(3, MelodyRhythmLibrary.All.Count(preset => preset.Style != MelodyStyle.Balanced
+                && preset.Archetype == archetype)));
+
+        foreach (var preset in MelodyRhythmLibrary.All)
+        {
+            var notes = generator.Generate("C", "Major", progression, FourBars, 12345, preset.Style);
+            var firstPhrase = notes.TakeWhile(note => note.Start < 2 * MusicConstants.TicksPerBar).ToArray();
+            var secondPhrase = notes.Skip(firstPhrase.Length).ToArray();
+            Assert.NotEmpty(firstPhrase);
+            Assert.Equal(firstPhrase.Length, secondPhrase.Length);
+            Assert.Equal(firstPhrase.Select(note => (note.Start, note.Length)),
+                secondPhrase.Select(note => (note.Start - 2 * MusicConstants.TicksPerBar, note.Length)));
+            Assert.All(notes, note =>
+            {
+                Assert.InRange(note.Pitch, 72, 84);
+                Assert.Equal(preset.Velocity, note.Velocity);
+            });
+        }
+
+        var balanced = generator.Generate("C", "Major", progression, FourBars, 12345);
+        var ambient = generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Ambient);
+        var funk = generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.FunkStabs);
+        Assert.NotEqual(ambient.Select(note => (note.Start, note.Length)), funk.Select(note => (note.Start, note.Length)));
+        Assert.Equal(ambient.Select(note => note.Pitch), funk.Select(note => note.Pitch));
+        Assert.Equal(balanced, generator.Generate("C", "Major", progression, FourBars, 12345, MelodyStyle.Balanced));
+    }
+
+    [Fact]
+    public void RhythmTemplatesUseOrderedUniqueSixteenthStepsInTwoBars()
+    {
+        Assert.NotEmpty(MelodyRhythmLibrary.All);
+        Assert.All(MelodyRhythmLibrary.RhythmTemplates, template =>
+        {
+            Assert.Equal(2, template.Bars.Length);
+            Assert.All(template.Bars, bar =>
+            {
+                Assert.NotEmpty(bar);
+                Assert.True(bar.SequenceEqual(bar.Distinct().Order()));
+                Assert.All(bar, step => Assert.InRange(step, 0, 15));
+            });
+        });
+    }
+
+    [Fact]
     public void AllSupportedHarmoniesEnforceChordTonesScaleAndMotion()
     {
         var generator = new MelodyGenerator();

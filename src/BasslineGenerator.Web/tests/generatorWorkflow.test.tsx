@@ -414,6 +414,7 @@ it("generates deterministic melody content only on each focused melodic track", 
     progressionId: pkg.effectiveConfiguration.progressionId,
     sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
     seed,
+    style: pkg.effectiveConfiguration.style,
   }]));
 
   await act(async () => button("Refresh Devices").click());

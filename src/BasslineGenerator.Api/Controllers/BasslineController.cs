@@ -56,6 +56,13 @@ public sealed class BasslineController(
     public ActionResult<ProgressionResponse[]> Progressions() => Ok(ChordProgressionLibrary.All.Select(p =>
         new ProgressionResponse(p.Id, p.DisplayName, p.Description, p.ChordSequence, p.Mood, p.SuggestedUse)).ToArray());
 
+    /// <summary>Returns available melody rhythm and style presets.</summary>
+    [HttpGet("melody-styles")]
+    [ProducesResponseType<MelodyStyleResponse[]>(StatusCodes.Status200OK)]
+    public ActionResult<MelodyStyleResponse[]> MelodyStyles() => Ok(MelodyRhythmLibrary.All.Select(preset =>
+        new MelodyStyleResponse(preset.Id, preset.Name, preset.Description,
+            preset.Archetype.ToString())).ToArray());
+
     /// <summary>Generates a deterministic, chord-aware melody for preview.</summary>
     /// <remarks>Returns notes in beats without storing the request or generated content. The resolved progression ID and seed must be supplied.</remarks>
     /// <response code="200">The monophonic melody notes.</response>
@@ -72,7 +79,8 @@ public sealed class BasslineController(
     {
         var progression = ChordProgressionLibrary.Find(request.ProgressionId!)!;
         var sections = request.Sections!.Select(section => new SongSection("", SongWorld.Dreamy, section!.Bars!.Value)).ToArray();
-        var notes = melody.Generate(request.RootNote!, request.ScaleType!, progression, sections, request.Seed!.Value);
+        var style = MelodyRhythmLibrary.Find(request.Style)!.Style;
+        var notes = melody.Generate(request.RootNote!, request.ScaleType!, progression, sections, request.Seed!.Value, style);
         return Ok(notes.Select(note => new NoteData(NoteUtilities.NoteName(note.Pitch), note.Pitch,
             (double)note.Start / MusicConstants.Ppq, (double)note.Length / MusicConstants.Ppq, note.Velocity)).ToArray());
     }
