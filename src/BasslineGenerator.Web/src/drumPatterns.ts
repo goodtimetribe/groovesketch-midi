@@ -15,7 +15,7 @@ function hits(note: string, midiNote: number, steps: [number, number][]): NoteDa
 export const drumPatterns: DrumPattern[] = [
   {
     id: "four-on-the-floor", name: "Four on the floor", bars: 1,
-    description: "Straight kick, backbeat snare, and offbeat closed hats.",
+    description: "Straight kick, backbeat snare, offbeat closed hats, and light shaker accents on Drum 4.",
     notes: [
       { note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 },
       { note: "C2", midiNote: 36, startBeat: 1, durationBeats: 0.25, velocity: 110 },
@@ -27,17 +27,102 @@ export const drumPatterns: DrumPattern[] = [
       { note: "F#2", midiNote: 42, startBeat: 1.5, durationBeats: 0.25, velocity: 75 },
       { note: "F#2", midiNote: 42, startBeat: 2.5, durationBeats: 0.25, velocity: 75 },
       { note: "F#2", midiNote: 42, startBeat: 3.5, durationBeats: 0.25, velocity: 75 },
+      { note: "A#4", midiNote: 70, startBeat: 0.25, durationBeats: 0.25, velocity: 50 },
+      { note: "A#4", midiNote: 70, startBeat: 2.25, durationBeats: 0.25, velocity: 58 },
     ],
   },
   {
     id: "half-time", name: "Half time", bars: 2,
-    description: "A spacious half-time kick and snare groove.",
+    description: "A spacious half-time kick and snare groove with sparse cowbell accents on Drum 4.",
     notes: [
       { note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 },
       { note: "D2", midiNote: 38, startBeat: 2, durationBeats: 0.25, velocity: 100 },
       { note: "C2", midiNote: 36, startBeat: 4, durationBeats: 0.25, velocity: 110 },
       { note: "C2", midiNote: 36, startBeat: 5.5, durationBeats: 0.25, velocity: 90 },
       { note: "D2", midiNote: 38, startBeat: 6, durationBeats: 0.25, velocity: 100 },
+      ...hits("F#2", 42, [[0.5, 62], [1.5, 68], [2.5, 62], [3.5, 72], [4.5, 62], [5.5, 68], [6.5, 62], [7.5, 72]]),
+      { note: "G#3", midiNote: 56, startBeat: 3.75, durationBeats: 0.25, velocity: 68 },
+      { note: "G#3", midiNote: 56, startBeat: 7.75, durationBeats: 0.25, velocity: 74 },
+    ],
+  },
+  {
+    id: "rock-backbeat", name: "Rock - Straight Backbeat", bars: 1,
+    description: "Driving rock backbeat with eighth-note hats and tambourine accents on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 116], [2, 110], [2.5, 94], [3.75, 88]]),
+      ...hits("D2", 38, [[1, 112], [3, 116]]),
+      ...hits("F#2", 42, [[0, 68], [0.5, 74], [1, 68], [1.5, 76], [2, 68], [2.5, 78], [3, 70], [3.5, 80]]),
+      ...hits("F#3", 54, [[0, 62], [1, 76], [2, 62], [3, 80]]),
+    ],
+  },
+  {
+    id: "rock-half-time", name: "Rock - Heavy Half Time", bars: 2,
+    description: "Heavy two-bar rock groove with a half-time snare and cowbell hits on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 120], [1.75, 92], [4, 120], [5.5, 96], [7.5, 90]]),
+      ...hits("D2", 38, [[2, 118], [6, 122]]),
+      ...hits("F#2", 42, [[0, 64], [1, 72], [2, 64], [3, 76], [4, 64], [5, 72], [6, 64], [7, 78]]),
+      ...hits("G#3", 56, [[1.5, 72], [3.5, 66], [5.75, 78]]),
+    ],
+  },
+  {
+    id: "jazz-swing", name: "Jazz - Swing Ride", bars: 2,
+    description: "Swinging ride-like hats and syncopated kick and snare, with shaker brush accents on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 82], [2.75, 70], [4, 84], [6.5, 72]]),
+      ...hits("D2", 38, [[1, 66], [3, 76], [5, 68], [7, 78]]),
+      ...hits("F#2", 42, [[0, 70], [0.75, 58], [1, 68], [1.75, 60], [2, 70], [2.75, 58], [3, 68], [3.75, 62], [4, 70], [4.75, 58], [5, 68], [5.75, 60], [6, 70], [6.75, 58], [7, 68], [7.75, 62]]),
+      ...hits("A#4", 70, [[1.25, 46], [3.25, 52], [5.25, 46], [7.25, 54]]),
+    ],
+  },
+  {
+    id: "jazz-shuffle", name: "Jazz - Shuffle Brushes", bars: 1,
+    description: "Loose shuffle hats, soft backbeats, and brushed clave textures on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 84], [2.5, 68], [3.75, 62]]),
+      ...hits("D2", 38, [[1, 72], [3, 80]]),
+      ...hits("F#2", 42, [[0, 60], [0.75, 50], [1, 62], [1.75, 54], [2, 60], [2.75, 50], [3, 64], [3.75, 56]]),
+      ...hits("D#5", 75, [[0.25, 42], [1.5, 48], [2.25, 42], [3.5, 50]]),
+    ],
+  },
+  {
+    id: "reggae-one-drop", name: "Reggae - One Drop", bars: 1,
+    description: "A one-drop backbeat with offbeat hats and warm conga accents on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[2, 112], [3.75, 70]]),
+      ...hits("D2", 38, [[2, 108]]),
+      ...hits("F#2", 42, [[0.5, 72], [1.5, 78], [2.5, 72], [3.5, 82]]),
+      ...hits("D#4", 63, [[0.75, 62], [1.75, 74], [2.75, 64], [3.25, 78]]),
+    ],
+  },
+  {
+    id: "reggae-steppers", name: "Reggae - Steppers", bars: 1,
+    description: "Steady quarter-note kicks, skanking hats, and offbeat bongo accents on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 110], [1, 106], [2, 110], [3, 106]]),
+      ...hits("D2", 38, [[1, 92], [3, 96]]),
+      ...hits("F#2", 42, [[0.5, 78], [1.5, 82], [2.5, 78], [3.5, 84]]),
+      ...hits("C4", 60, [[0.75, 66], [1.75, 78], [2.75, 66], [3.75, 80]]),
+    ],
+  },
+  {
+    id: "funk-pocket", name: "Funk - Syncopated Pocket", bars: 2,
+    description: "A syncopated funk pocket with crisp hats and cowbell answers on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 114], [1.5, 90], [2.75, 102], [4, 114], [5.75, 94], [6.5, 104]]),
+      ...hits("D2", 38, [[1, 104], [3, 110], [5, 104], [7, 112]]),
+      ...hits("F#2", 42, [[0, 62], [0.5, 72], [1, 64], [1.5, 76], [2, 62], [2.5, 72], [3, 64], [3.5, 78], [4, 62], [4.5, 72], [5, 64], [5.5, 76], [6, 62], [6.5, 72], [7, 64], [7.5, 78]]),
+      ...hits("G#3", 56, [[0.75, 64], [2.5, 78], [4.75, 64], [7.25, 82]]),
+    ],
+  },
+  {
+    id: "blues-shuffle", name: "Blues - Slow Shuffle", bars: 1,
+    description: "A laid-back blues shuffle with a strong backbeat and claves on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 108], [2, 102], [3.75, 72]]),
+      ...hits("D2", 38, [[1, 98], [3, 104]]),
+      ...hits("F#2", 42, [[0, 62], [0.75, 70], [1, 62], [1.75, 72], [2, 62], [2.75, 70], [3, 64], [3.75, 74]]),
+      ...hits("D#5", 75, [[1.5, 58], [3.5, 68]]),
     ],
   },
   {
