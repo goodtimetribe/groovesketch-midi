@@ -62,7 +62,7 @@ describe("Circuit Tracks drum mapping", () => {
   });
 
   it.each([
-    "four-on-the-floor", "half-time", "rock-backbeat", "rock-half-time",
+    "rock-backbeat", "rock-half-time",
     "jazz-swing", "jazz-shuffle", "reggae-one-drop", "reggae-steppers",
     "funk-pocket", "blues-shuffle", "house-shaker", "techno-cowbell",
     "trance-tambourine", "electro-claves", "breakbeat-bongo", "synthwave-conga",

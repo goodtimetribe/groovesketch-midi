@@ -15,7 +15,7 @@ function hits(note: string, midiNote: number, steps: [number, number][]): NoteDa
 export const drumPatterns: DrumPattern[] = [
   {
     id: "four-on-the-floor", name: "Four on the floor", bars: 1,
-    description: "Straight kick, backbeat snare, offbeat closed hats, and light shaker accents on Drum 4.",
+    description: "Straight kick, backbeat snare, and offbeat closed hats.",
     notes: [
       { note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 },
       { note: "C2", midiNote: 36, startBeat: 1, durationBeats: 0.25, velocity: 110 },
@@ -27,22 +27,17 @@ export const drumPatterns: DrumPattern[] = [
       { note: "F#2", midiNote: 42, startBeat: 1.5, durationBeats: 0.25, velocity: 75 },
       { note: "F#2", midiNote: 42, startBeat: 2.5, durationBeats: 0.25, velocity: 75 },
       { note: "F#2", midiNote: 42, startBeat: 3.5, durationBeats: 0.25, velocity: 75 },
-      { note: "A#4", midiNote: 70, startBeat: 0.25, durationBeats: 0.25, velocity: 50 },
-      { note: "A#4", midiNote: 70, startBeat: 2.25, durationBeats: 0.25, velocity: 58 },
     ],
   },
   {
     id: "half-time", name: "Half time", bars: 2,
-    description: "A spacious half-time kick and snare groove with sparse cowbell accents on Drum 4.",
+    description: "A spacious half-time kick and snare groove.",
     notes: [
       { note: "C2", midiNote: 36, startBeat: 0, durationBeats: 0.25, velocity: 110 },
       { note: "D2", midiNote: 38, startBeat: 2, durationBeats: 0.25, velocity: 100 },
       { note: "C2", midiNote: 36, startBeat: 4, durationBeats: 0.25, velocity: 110 },
       { note: "C2", midiNote: 36, startBeat: 5.5, durationBeats: 0.25, velocity: 90 },
       { note: "D2", midiNote: 38, startBeat: 6, durationBeats: 0.25, velocity: 100 },
-      ...hits("F#2", 42, [[0.5, 62], [1.5, 68], [2.5, 62], [3.5, 72], [4.5, 62], [5.5, 68], [6.5, 62], [7.5, 72]]),
-      { note: "G#3", midiNote: 56, startBeat: 3.75, durationBeats: 0.25, velocity: 68 },
-      { note: "G#3", midiNote: 56, startBeat: 7.75, durationBeats: 0.25, velocity: 74 },
     ],
   },
   {

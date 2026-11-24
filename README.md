@@ -133,8 +133,8 @@ roll visibility. Drum notes use the Circuit Tracks mapping described below.
 The export uses the generated tempo and arrangement, not unapplied settings.
 The library includes curated Rock, Jazz, Reggae, Funk, Blues, House, Techno,
 Trance, Electro, Breakbeat, and Synthwave grooves, with multiple variations
-for Rock, Jazz, and Reggae. Every pattern includes Drum 4 percussion, and each
-pattern's description suggests which percussion sound to load; select that
+for Rock, Jazz, and Reggae. The genre variations include Drum 4 percussion,
+and each of their descriptions suggests which sample to load; select that
 sample on the Circuit Tracks itself.
 On playback to a MIDI output whose name contains “Circuit Tracks,” the supported
 GM notes map to Circuit Tracks Drum 1–4: kick 36 to 60, snare 38 to 62,

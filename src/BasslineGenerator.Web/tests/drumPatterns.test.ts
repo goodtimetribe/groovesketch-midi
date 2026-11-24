@@ -40,8 +40,6 @@ describe("drum patterns", () => {
   });
 
   it.each([
-    ["four-on-the-floor", 70],
-    ["half-time", 56],
     ["rock-backbeat", 54],
     ["rock-half-time", 56],
     ["jazz-swing", 70],
