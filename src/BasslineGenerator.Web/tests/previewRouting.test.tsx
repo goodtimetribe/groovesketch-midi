@@ -138,7 +138,9 @@ it("shows and remembers per-track browser sounds in the playback sidebar", async
   await act(async () => sounds.querySelector("summary")!.click());
   const sound = sounds.querySelector<HTMLSelectElement>('[aria-label="Synth2 browser sound"]')!;
   expect([...sound.options].map((option) => option.textContent)).toEqual([
-    "Classic", "Bass", "Acid Bass", "Warm Pad", "Dream Pad", "Saw Lead", "Square Lead", "Keys", "Pluck",
+    "Classic", "Bass", "Acid Bass", "Warm Pad", "Dream Pad", "Analog Pad", "Juno Pad",
+    "Saw Lead", "Square Lead", "Supersaw Lead", "Keys", "FM Bell", "Organ", "Strings",
+    "Pluck", "Soft Pluck", "Bright Pluck",
   ]);
   await act(async () => { sound.value = "warmPad"; sound.dispatchEvent(new Event("change", { bubbles: true })); });
   expect(assign).toHaveBeenCalledWith("synth2", "warmPad");

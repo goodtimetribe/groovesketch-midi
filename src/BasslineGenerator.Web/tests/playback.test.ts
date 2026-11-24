@@ -182,6 +182,30 @@ describe("preview transport", () => {
     transport.dispose();
   });
 
+  it("plays the expanded browser sound presets with their configured voices and envelopes", async () => {
+    const note = { note: "C4", midiNote: 60, startBeat: 0, durationBeats: 1, velocity: 100 };
+    const sounds = [
+      ["analogPad", "sawtooth", 1100],
+      ["junoPad", "sawtooth", 2200],
+      ["supersawLead", "sawtooth", 4200],
+      ["fmBell", "sine", 7000],
+      ["organ", "square", 3600],
+      ["strings", "sawtooth", 1600],
+      ["softPluck", "triangle", 1200],
+      ["brightPluck", "square", 5200],
+    ] as const;
+    for (const [sound, oscillatorType, cutoff] of sounds) {
+      const transport = new PlaybackTransport(() => {});
+      transport.load(pkg, [], [], { synth1: [note], synth2: [], midi1: [], midi2: [] });
+      transport.setTrackSound("synth1", sound);
+      await transport.play();
+      const context = AudioContextMock.instance;
+      expect(context.oscillators.at(-1)!.type).toBe(oscillatorType);
+      expect(context.filters.at(-1)!.frequency.value).toBe(cutoff);
+      transport.dispose();
+    }
+  });
+
   it("changes future browser notes without interrupting playback or affecting MIDI", async () => {
     const output = new MidiOutputMock();
     const device = output as unknown as MIDIOutput;
