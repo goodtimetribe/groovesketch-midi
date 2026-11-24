@@ -453,8 +453,8 @@ const Preview = forwardRef<PreviewHandle, {
   const allDownload = <button type="button" disabled={disabled || generating || !readyChords || !!readyChords.error}
     onClick={() => { onPreviewDownload?.(); downloadAllTracks(); }}>Download All Tracks MIDI (Circuit Tracks)</button>;
   const playbackControls = <div className="preview" aria-label="Bassline preview">
-    <div className="transport" role="group" aria-label="Playback controls">
-      <div><p className="eyebrow">PREVIEW TRANSPORT</p><h2>Listen</h2></div>
+    <div className="transport transport-dock" role="group" aria-label="Playback controls">
+      <div className="transport-title"><p className="eyebrow">PREVIEW TRANSPORT</p><h2>Listen</h2></div>
       <div className="transport-buttons">
         <button type="button" className="primary" onClick={() => start(false)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision || !readyChords || !!readyChords.error || state === "playing" || (!Object.values(tracks).some((track) => track.notes.length) && !drumNotes.length)}>Play</button>
         <button type="button" onClick={() => transport.pause()} disabled={disabled || state !== "playing"}>Pause</button>
@@ -466,15 +466,15 @@ const Preview = forwardRef<PreviewHandle, {
         }}>{looping ? "Loop Enabled" : "Loop"}</button>
       </div>
       <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
-      {[routing, chordRouting, midi1Routing, midi2Routing, drumRouting].some((route) => route.destination.kind === "browser") &&
-        <label className="volume">Volume <span>{volume}%</span>
-          <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
-            disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
-        </label>}
-      <button type="button" onClick={() => void refreshDevices()} disabled={refreshing}>
-        {refreshing ? "Refreshing..." : "Refresh Devices"}
-      </button>
     </div>
+    {[routing, chordRouting, midi1Routing, midi2Routing, drumRouting].some((route) => route.destination.kind === "browser") &&
+      <label className="volume">Volume <span>{volume}%</span>
+        <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
+          disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
+      </label>}
+    <button type="button" onClick={() => void refreshDevices()} disabled={refreshing}>
+      {refreshing ? "Refreshing..." : "Refresh Devices"}
+    </button>
     <details className="track-sounds"><summary>Track Sounds
       <span className="track-sounds-summary">
         {melodicTrackIds.map((id) => <span key={id}><span className="track-indicator"

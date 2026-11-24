@@ -88,12 +88,16 @@ summary { cursor: pointer; font-weight: 700; }
 .routing-profiles { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-bottom: 12px; }
 .routing-profiles label { min-width: 180px; margin: 0; }
 .routing-profiles .hint { flex-basis: 100%; }
-.transport { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.transport { display: flex; align-items: center; gap: 12px; }
+.transport-dock { position: fixed; z-index: 20; left: 50%; bottom: 12px; width: min(900px, calc(100% - 32px)); padding: 12px 16px; transform: translateX(-50%); border: 1px solid #496278; border-radius: 12px; background: #17212ff5; box-shadow: 0 8px 30px #000a; }
 .transport-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-.volume { margin: 0; }
+.transport-title { flex: 0 0 auto; }
+.transport-title .eyebrow { margin-bottom: 2px; }
+.transport-title h2 { font-size: 1rem; }
+.volume { margin: 12px 0 8px; }
 .volume span { color: #e6ecf5; }
-.transport-state { color: #aab9ca; font-size: .8rem; }
-.transport > button { align-self: flex-start; }
+.transport-state { margin-left: auto; color: #b7c5d6; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.preview > button { margin-bottom: 4px; }
 .track-sounds-summary { display: grid; gap: 4px; margin-top: 8px; color: #a9b7c8; font-size: .75rem; font-weight: 400; }
 .track-sounds[open] .track-sounds-summary { display: none; }
 .track-sound-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; padding-top: 10px; }
@@ -143,8 +147,11 @@ td, th { padding: 8px; border-bottom: 1px solid #34445a; }
 @media (max-width: 800px) {
   .topbar { padding: 16px; align-items: flex-start; }
   .creative-bar { padding: 10px 16px; }
-  .workspace { grid-template-columns: 1fr; padding: 16px; }
+  .workspace { grid-template-columns: 1fr; padding: 16px 16px 130px; }
   .settings { position: static; max-height: none; }
   .announcements { padding: 0 16px; }
+  .transport-title { display: none; }
+  .transport-dock { gap: 8px; padding: 10px 12px; }
 }
-@media (max-width: 480px) { .topbar { flex-direction: column; } .download-options { left: 0; right: auto; } .card { padding: 16px; } .grid-two { gap: 0 8px; } }
+@media (min-width: 801px) { .workspace { padding-bottom: 120px; } }
+@media (max-width: 480px) { .topbar { flex-direction: column; } .download-options { left: 0; right: auto; } .card { padding: 16px; } .grid-two { gap: 0 8px; } .transport-dock { bottom: 8px; width: calc(100% - 16px); } .transport-buttons { gap: 6px; } .transport-buttons button { padding: 7px 9px; } .transport-state { align-self: flex-start; } }

@@ -276,7 +276,13 @@ it("places working playback controls in the supplied sidebar", async () => {
   try {
     await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} />));
     const refresh = [...sidebar.querySelectorAll("button")].find((item) => item.textContent === "Refresh Devices")!;
-    expect(sidebar.querySelector('[aria-label="Playback controls"]')).not.toBeNull();
+    const transport = sidebar.querySelector('[aria-label="Playback controls"]');
+    expect(transport?.classList.contains("transport-dock")).toBe(true);
+    expect([...transport!.querySelectorAll("button")].map((item) => item.textContent)).toEqual([
+      "Play", "Pause", "Stop", "Restart", "Loop Enabled",
+    ]);
+    expect(transport!.querySelector('[role="status"]')?.textContent).toBe("Stopped");
+    expect(transport!.contains(sidebar.querySelector('[aria-label="Master volume"]'))).toBe(false);
     expect(container.querySelector('[aria-label="Playback controls"]')).toBeNull();
     await act(async () => refresh.click());
     expect(sidebar.textContent).toContain("Circuit Tracks");
