@@ -52,11 +52,22 @@ let root: Root;
 let output: { id: string; name: string; state: string; send: ReturnType<typeof vi.fn>; clear: ReturnType<typeof vi.fn> };
 
 function button(name: string) {
-  if (name === "Apply Pattern") name = "Regenerate Drums";
-  else if (/^Generate (Bass|Chords|Melody|Pad)$/.test(name)) {
+  if (name === "Apply Pattern") name = "Apply Drums";
+  else if (name.startsWith("Regenerate ")) {
+    const hardware = name.slice("Regenerate ".length);
+    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${hardware} role"]`)?.value;
+    if (!role) name = `Choose a role for ${hardware}`;
+    else {
+      const actionName = role === "bass" ? "Vary" : role === "drums" || role === "aux-percussion" ? "Apply" : "Rebuild";
+      name = `${actionName} ${role === "lead" ? "Lead" : role === "pad" ? "Pad" : role === "chords" ? "Chords" : role === "bass" ? "Bass" : "Drums"} on ${hardware}`;
+    }
+  } else if (/^Generate (Bass|Chords|Melody|Pad)$/.test(name)) {
     const focus = selectElement("Focus").value;
-    name = `Regenerate ${focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : "Midi2"}`;
+    const hardware = focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : "Midi2";
+    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${hardware} role"]`)?.value;
+    name = `${role === "bass" ? "Vary" : "Rebuild"} ${role === "lead" ? "Lead" : role === "pad" ? "Pad" : role === "chords" ? "Chords" : "Bass"} on ${hardware}`;
   }
+  if (name === "Apply Drums") name = "Apply Drums on Drums";
   const action = container.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
   if (action) return action;
   const result = [...container.querySelectorAll("button")].find((item) => item.textContent === name);
@@ -78,6 +89,7 @@ function selectElement(label: string): HTMLSelectElement {
 
 async function select(label: string, value: string) {
   const control = selectElement(label);
+  if (label === "Generator" && value === "melody") value = "lead";
   await act(async () => { control.value = value; control.dispatchEvent(new Event("change", { bubbles: true })); });
 }
 
@@ -122,7 +134,7 @@ it("generates into the focused destination, preserving other tracks and routing 
   const melody = [...selectElement("Generator").options].find((option) => option.text === "Lead");
   expect(melody?.disabled).toBe(false);
   await select("Generator", "melody");
-  expect(selectElement("Generator").value).toBe("melody");
+  expect(selectElement("Generator").value).toBe("lead");
 
   await select("Focus", "midi1");
   await select("Generator", "chords");
@@ -152,6 +164,23 @@ it("generates into the focused destination, preserving other tracks and routing 
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x90, 33, 64]);
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x91, 48, 80]);
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x92, 60, 90]);
+});
+
+it("communicates actions for logical roles while preserving their current defaults", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Bass action"]')?.value).toBe("vary");
+  expect(container.querySelector<HTMLButtonElement>('button[aria-label="Vary Bass on Synth1"]')?.textContent).toBe("Vary Bass");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Chords action"]')?.value).toBe("rebuild");
+  expect(container.querySelector<HTMLButtonElement>('button[aria-label="Rebuild Chords on Synth2"]')?.textContent).toBe("Rebuild Chords");
+
+  await act(async () => {
+    const drumRole = container.querySelector<HTMLSelectElement>('select[aria-label="Drums role"]')!;
+    drumRole.value = "aux-percussion";
+    drumRole.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Aux Percussion action"]')?.value).toBe("apply");
+  expect(container.querySelector<HTMLButtonElement>('button[aria-label="Apply Aux Percussion on Drums"]')?.textContent)
+    .toBe("Apply Aux Percussion");
 });
 
 it("generates a pad only on the focused track and uses its MIDI route and export track", async () => {
@@ -254,7 +283,7 @@ it("regenerates individual tracks from their rows without changing focus", async
   expect(selectElement("Focus").value).toBe("synth1");
   expect(button("Regenerate Midi2").disabled).toBe(true);
   await act(async () => {
-    midi1.value = "melody"; midi1.dispatchEvent(new Event("change", { bubbles: true }));
+    midi1.value = "lead"; midi1.dispatchEvent(new Event("change", { bubbles: true }));
     midi2.value = "pad"; midi2.dispatchEvent(new Event("change", { bubbles: true }));
   });
   expect(container.textContent).not.toContain("Midi2 • Pad");
@@ -262,7 +291,7 @@ it("regenerates individual tracks from their rows without changing focus", async
   expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.textContent).toContain("Synth1 • Bass");
   expect(container.textContent).not.toContain("Midi1 • Lead");
-  expect(midi1.value).toBe("melody");
+  expect(midi1.value).toBe("lead");
   await act(async () => button("Regenerate Midi1").click());
   expect(container.textContent).toContain("Midi1 • Lead");
   expect(selectElement("Focus").value).toBe("synth1");
@@ -308,7 +337,7 @@ it("applies the selected pattern only on action and preserves melodic tracks", a
   await select("Focus", "drums");
   expect(selectElement("Generator").value).toBe("drums");
   expect(selectElement("Generator").querySelector('option[value="bass"]')).toBeNull();
-  expect(selectElement("Generator").querySelector('option[value="melody"]')).toBeNull();
+  expect(selectElement("Generator").querySelector('option[value="lead"]')).toBeNull();
   expect(button("Apply Pattern").disabled).toBe(true);
   await select("Drum pattern", "four-on-the-floor");
   expect(container.textContent).toContain("Visible notes (2)");

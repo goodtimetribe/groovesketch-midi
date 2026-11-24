@@ -47,11 +47,19 @@ let container: HTMLDivElement;
 let root: Root;
 
 function button(name: string) {
-  if (name === "Apply Pattern") name = "Regenerate Drums";
-  else if (/^Generate (Bass|Chords|Melody|Pad)$/.test(name)) {
+  if (name === "Apply Pattern") name = "Apply Drums";
+  else if (name.startsWith("Regenerate ")) {
+    const hardware = name.slice("Regenerate ".length);
+    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${hardware} role"]`)?.value;
+    name = role ? `${role === "bass" ? "Vary" : "Rebuild"} ${role === "lead" ? "Lead" : role === "pad" ? "Pad" : role === "chords" ? "Chords" : "Bass"} on ${hardware}`
+      : `Choose a role for ${hardware}`;
+  } else if (/^Generate (Bass|Chords|Melody|Pad)$/.test(name)) {
     const focus = selectElement("Focus").value;
-    name = `Regenerate ${focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : "Midi2"}`;
+    const hardware = focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : "Midi2";
+    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${hardware} role"]`)?.value;
+    name = `${role === "bass" ? "Vary" : "Rebuild"} ${role === "lead" ? "Lead" : role === "pad" ? "Pad" : role === "chords" ? "Chords" : "Bass"} on ${hardware}`;
   }
+  if (name === "Apply Drums") name = "Apply Drums on Drums";
   const action = container.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
   if (action) return action;
   const found = [...container.querySelectorAll("button")].find((item) => item.textContent === name);
@@ -73,6 +81,7 @@ function selectElement(label: string): HTMLSelectElement {
 
 async function select(label: string, value: string) {
   const input = selectElement(label);
+  if (label === "Generator" && value === "melody") value = "lead";
   await act(async () => { input.value = value; input.dispatchEvent(new Event("change", { bubbles: true })); });
 }
 
@@ -345,7 +354,7 @@ it("uses the selected pattern and generates every track using the same settings 
   expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth1 role"]')?.value).toBe("bass");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth2 role"]')?.value).toBe("chords");
-  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Midi1 role"]')?.value).toBe("melody");
+  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Midi1 role"]')?.value).toBe("lead");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Midi2 role"]')?.value).toBe("pad");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Drums role"]')?.value).toBe("drums");
   expect(container.textContent).toContain("Applied pattern: Four on the floor");

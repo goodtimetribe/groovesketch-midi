@@ -11,9 +11,10 @@ import Preview from "../src/Preview";
 import type { GenerationPackage } from "../src/types";
 
 vi.mock("../src/PianoRoll", () => ({
-  default: ({ chordNotes, drumNotes, workflow }: { chordNotes: unknown[]; drumNotes: unknown[]; workflow: { generate: (track: "drums", generator: "drums") => void } }) =>
+  default: ({ chordNotes, drumNotes, workflow }: { chordNotes: unknown[]; drumNotes: unknown[]; workflow: {
+    generate: (track: "drums", role: "drums", action: "apply") => void } }) =>
     <><div data-testid="chord-count">{chordNotes.length}</div><div data-testid="drum-count">{drumNotes.length}</div>
-      <button type="button" onClick={() => workflow.generate("drums", "drums")}>Apply Pattern</button></>,
+      <button type="button" onClick={() => workflow.generate("drums", "drums", "apply")}>Apply Pattern</button></>,
 }));
 
 const pkg: GenerationPackage = {

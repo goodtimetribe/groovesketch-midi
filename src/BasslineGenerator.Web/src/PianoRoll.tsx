@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PlaybackState, PlaybackTransport } from "./playback";
 import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "./trackView";
 import { melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
+import { actionLabel, actionsForRole, defaultActionForRole, legacyMelodyRole, roleLabel,
+  type ActionableRole, type TrackAction } from "./trackActions";
 import type { GenerationPackage, NoteData } from "./types";
 
-export type GeneratorType = "bass" | "chords" | "melody" | "pad" | "drums";
 export type FocusTrack = MelodicTrackId | "drums";
-type MelodicGenerator = Exclude<GeneratorType, "drums">;
 type Workflow = { content: MelodicContent; busy: boolean; disabled: boolean; patternSelected: boolean;
-  generate: (track: FocusTrack, generator: GeneratorType) => void };
+  generate: (track: FocusTrack, role: ActionableRole, action: TrackAction) => void };
 interface Props {
   pkg: GenerationPackage; transport: PlaybackTransport; playbackState: PlaybackState; chordNotes: NoteData[]; drumNotes?: NoteData[];
   workflow?: Workflow;
@@ -17,11 +17,13 @@ interface Props {
 function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewModel; pkg: GenerationPackage;
   workflow?: Workflow; onVisibility: (enabled: boolean) => void }) {
   const id = melodicTrackIds.find((item) => item === track.id);
-  const role = track.kind === "track" ? track.role : null;
-  const generatorForRole = (value: typeof role): MelodicGenerator | "" =>
-    value === "lead" ? "melody" : value === "bass" || value === "chords" || value === "pad" ? value : "";
-  const [generator, setGenerator] = useState<MelodicGenerator | "">(() => generatorForRole(role));
-  useEffect(() => { setGenerator(generatorForRole(role)); }, [pkg, role]);
+  const assignedRole = track.kind === "track" ? legacyMelodyRole(track.role) : "drums";
+  const [role, setRole] = useState<ActionableRole | "">(assignedRole ?? "");
+  const [action, setAction] = useState<TrackAction>(() => assignedRole ? defaultActionForRole[assignedRole] : "rebuild");
+  useEffect(() => {
+    setRole(assignedRole ?? "");
+    if (assignedRole) setAction(defaultActionForRole[assignedRole]);
+  }, [pkg, assignedRole]);
   const trackName = id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : id === "midi2" ? "Midi2" : "Drums";
   return <div className="track-row">
     <label className="check">
@@ -29,25 +31,48 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
       <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" /> {track.name}
     </label>
     {workflow && id && <>
-      <select aria-label={`${trackName} role`} value={generator} disabled={workflow.busy || workflow.disabled} onChange={(event) => {
+      <select aria-label={`${trackName} role`} value={role} disabled={workflow.busy || workflow.disabled} onChange={(event) => {
         const value = event.target.value;
-        if (value === "bass" || value === "chords" || value === "melody" || value === "pad") setGenerator(value);
+        const next = legacyMelodyRole(value);
+        if (next && next !== "drums" && next !== "aux-percussion") {
+          setRole(next);
+          setAction(defaultActionForRole[next]);
+        }
       }}>
         <option value="" disabled>Choose role</option>
         <option value="bass">Bass</option><option value="chords">Chords</option>
-        <option value="melody">Lead</option><option value="pad">Pad</option>
+        <option value="lead">Lead</option><option value="pad">Pad</option>
       </select>
-      <button type="button" aria-label={`Regenerate ${trackName}`} title={`Regenerate ${trackName}`}
-        disabled={workflow.busy || workflow.disabled || !generator}
-        onClick={() => { if (generator) workflow.generate(id, generator); }}>↻</button>
+      {role && <select aria-label={`${roleLabel[role]} action`} value={action} disabled={workflow.busy || workflow.disabled}
+        onChange={(event) => setAction(event.target.value as TrackAction)}>
+        {actionsForRole[role].map((item) => <option key={item} value={item}>{actionLabel[item]}</option>)}
+      </select>}
+      <button type="button" aria-label={role ? `${actionLabel[action]} ${roleLabel[role]} on ${trackName}` : `Choose a role for ${trackName}`}
+        disabled={workflow.busy || workflow.disabled || !role}
+        onClick={() => { if (role) workflow.generate(id, role, action); }}>
+        {role ? `${actionLabel[action]} ${roleLabel[role]}` : "Choose Role"}
+      </button>
     </>}
     {workflow && track.kind === "drumGroup" && <>
-      <select aria-label="Drums role" value="drums" disabled={workflow.busy || workflow.disabled} onChange={() => {}}>
-        <option value="drums">Pattern</option>
+      <select aria-label="Drums role" value={role} disabled={workflow.busy || workflow.disabled} onChange={(event) => {
+        const next = legacyMelodyRole(event.target.value);
+        if (next === "drums" || next === "aux-percussion") {
+          setRole(next);
+          setAction(defaultActionForRole[next]);
+        }
+      }}>
+        <option value="drums">Drums</option><option value="aux-percussion">Aux Percussion</option>
       </select>
-      <button type="button" aria-label="Regenerate Drums" title="Apply selected drum pattern"
+      <select aria-label={role === "aux-percussion" ? "Aux Percussion action" : "Drums action"} value={action}
+        disabled={workflow.busy || workflow.disabled} onChange={(event) => setAction(event.target.value as TrackAction)}>
+        {actionsForRole[role as "drums" | "aux-percussion"].map((item) =>
+          <option key={item} value={item}>{actionLabel[item]}</option>)}
+      </select>
+      <button type="button" aria-label={`${actionLabel[action]} ${roleLabel[role as ActionableRole]} on Drums`}
         disabled={workflow.busy || workflow.disabled || !workflow.patternSelected}
-        onClick={() => workflow.generate("drums", "drums")}>↻</button>
+        onClick={() => workflow.generate("drums", role as "drums" | "aux-percussion", action)}>
+        {actionLabel[action]} {roleLabel[role as ActionableRole]}
+      </button>
     </>}
   </div>;
 }

@@ -26,6 +26,22 @@ independently uses channel 8.
 The mapping also applies whether the destination is represented by a DAW port,
 a sampler, or hardware; none of those device names belong in the role model.
 
+## Track actions
+
+Actions target these logical roles, not the output used to audition them:
+
+| Action | Meaning |
+| --- | --- |
+| **Rebuild** | Generate new content from the current musical context. |
+| **Apply** | Apply a pattern, style, sound, or setting while preserving unrelated content. |
+| **Vary** | Produce a related variation that keeps the role's musical intent. |
+
+Current defaults preserve the workflow that predates this vocabulary: Bass
+uses **Vary**, Chords/Lead/Pad use deterministic **Rebuild**, and Drums/Aux
+Percussion use **Apply**. A user can explicitly choose another action supported
+by that role. Physical track IDs remain an adapter for playback, routing, and
+Circuit Tracks compatibility only.
+
 ## Migration
 
 Migration can be incremental and does not change generation:
@@ -48,6 +64,11 @@ Migration can be incremental and does not change generation:
 6. In a later UI increment, display the user-editable track name beside its role
    and route, and use the stable
    hardware IDs only for legacy views, colors, and Circuit Tracks compatibility.
+
+The action terminology migrates independently of storage. Existing saved
+packages, share codes, route profiles, and device IDs remain valid; users do not
+need to rename tracks or recreate profiles. “Regenerate” corresponds to the
+existing default shown above for each role.
 
 This avoids a generation rewrite and allows one route implementation to support
 future roles.

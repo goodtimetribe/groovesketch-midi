@@ -109,9 +109,24 @@ sketch remains intact if any part fails. A blank seed is chosen once and shown
 in the resulting settings so the sketch can be reproduced with the same pattern.
 Melody, pad, drums, and subsequent track edits are not included in packages,
 share codes, or bass or bass-and-chords MIDI exports.
-Above the piano roll, choose a role for a melodic track and use its regenerate
-button to replace that track. Choose **Lead** for a chord-aware melody. Focus
-controls inspection and ghosting independently of generation.
+Track actions use one vocabulary based on the musical role:
+
+- **Rebuild** generates fresh content from the current musical settings. The
+  default Chords, Lead, and Pad actions rebuild deterministically.
+- **Apply** applies a selected pattern, style, sound, or setting without
+  replacing unrelated content. Drum-pattern selection applies independently to
+  **Drums** and **Aux Percussion**.
+- **Vary** creates a related version while retaining the role's musical intent.
+  The default Bass action creates a variation; variations are also available for
+  chords, lead, pad, drums, and auxiliary percussion.
+
+Above the piano roll, choose a logical role and the action, then use the labeled
+button. The destination track remains where that content is placed for
+playback and export; changing hardware routing does not change the role action.
+Focus controls inspection and ghosting independently of generation. The old
+“regenerate” controls map to these defaults without changing behavior: Bass is
+**Vary**, Chords/Lead/Pad are **Rebuild**, and Drums/Aux Percussion are
+**Apply**. Existing packages and routing profiles require no conversion.
 The same package seed, musical settings, and destination track reproduce the
 same two-bar motif. Each hardware track derives a distinct melody seed, although
 different seeds may still produce the same notes. The motif repeats across
