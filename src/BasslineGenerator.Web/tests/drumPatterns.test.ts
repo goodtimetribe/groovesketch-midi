@@ -40,6 +40,14 @@ describe("drum patterns", () => {
   });
 
   it.each([
+    ["rock-backbeat", 54],
+    ["rock-half-time", 56],
+    ["jazz-swing", 70],
+    ["jazz-shuffle", 75],
+    ["reggae-one-drop", 63],
+    ["reggae-steppers", 60],
+    ["funk-pocket", 56],
+    ["blues-shuffle", 75],
     ["house-shaker", 70],
     ["techno-cowbell", 56],
     ["trance-tambourine", 54],
@@ -49,6 +57,7 @@ describe("drum patterns", () => {
   ])("arranges %s with its percussion voice and repeats from each section", (id, percussion) => {
     const pattern = drumPatterns.find((item) => item.id === id);
     expect(pattern).toBeDefined();
+    expect(pattern!.description).toContain("Drum 4");
     const original = structuredClone(pattern!.notes);
     expect(new Set(pattern!.notes.map(({ midiNote }) => midiNote))).toEqual(new Set([36, 38, 42, percussion]));
     const arranged = arrangeDrums(pattern!, [section(pattern!.bars * 2), section(1)]);

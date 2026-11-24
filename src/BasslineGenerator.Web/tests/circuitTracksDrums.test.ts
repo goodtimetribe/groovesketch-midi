@@ -61,7 +61,12 @@ describe("Circuit Tracks drum mapping", () => {
     expect(pattern.notes).toEqual(original);
   });
 
-  it.each(["house-shaker", "techno-cowbell", "trance-tambourine", "electro-claves", "breakbeat-bongo", "synthwave-conga"])(
+  it.each([
+    "rock-backbeat", "rock-half-time",
+    "jazz-swing", "jazz-shuffle", "reggae-one-drop", "reggae-steppers",
+    "funk-pocket", "blues-shuffle", "house-shaker", "techno-cowbell",
+    "trance-tambourine", "electro-claves", "breakbeat-bongo", "synthwave-conga",
+  ])(
     "exports all four mapped voices for %s", async (id) => {
       const pattern = drumPatterns.find((item) => item.id === id)!;
       const original = structuredClone(pattern.notes);
