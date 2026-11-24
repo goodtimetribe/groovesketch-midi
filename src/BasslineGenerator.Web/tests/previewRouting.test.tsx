@@ -113,6 +113,21 @@ it("shows the selected pattern's description and Drum 4 sample guidance", async 
   expect(container.textContent).not.toContain("sparse cowbell accents on Drum 4");
 });
 
+it("offers the new songwriting foundations in the drum pattern selector", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  const control = [...container.querySelectorAll("label")]
+    .find((item) => item.textContent?.startsWith("Drum pattern"))
+    ?.querySelector("select");
+  const options = new Map([...control!.options].map(({ value, text }) => [value, text]));
+
+  expect(options.get("pop-modern-backbeat")).toBe("Pop - Modern Backbeat (1 bar)");
+  expect(options.get("punk-driving-eighths")).toBe("Punk - Driving Eighths (1 bar)");
+  expect(options.get("metal-gallop")).toBe("Metal - Gallop (2 bars)");
+  expect(options.get("disco-open-hat-drive")).toBe("Disco - Open Hat Drive (1 bar)");
+  expect(options.get("rock-texas-shuffle")).toBe("Rock - Texas Shuffle (2 bars)");
+  expect(options.get("latin-pop-conga-pulse")).toBe("Latin Pop - Conga Pulse (2 bars)");
+});
+
 it("shows volume when at least one track uses Browser Synth", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   expect(container.querySelector('[aria-label="Master volume"]')).not.toBeNull();
