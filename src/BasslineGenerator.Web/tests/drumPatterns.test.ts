@@ -39,6 +39,28 @@ describe("drum patterns", () => {
     }
   });
 
+  it("ships distinct required foundations at the documented lengths", () => {
+    const expected = [
+      ["pop-modern-backbeat", "Pop - Modern Backbeat", 1, 54],
+      ["punk-driving-eighths", "Punk - Driving Eighths", 1, 54],
+      ["metal-gallop", "Metal - Gallop", 2, 56],
+      ["disco-open-hat-drive", "Disco - Open Hat Drive", 1, 54],
+      ["rock-texas-shuffle", "Rock - Texas Shuffle", 2, 75],
+      ["latin-pop-conga-pulse", "Latin Pop - Conga Pulse", 2, 63],
+    ] as const;
+    const signatures = new Set(drumPatterns.map((pattern) =>
+      pattern.notes.map(({ midiNote, startBeat, durationBeats }) =>
+        `${midiNote}:${startBeat}:${durationBeats}`).join("|")));
+
+    expect(signatures).toHaveLength(drumPatterns.length);
+    for (const [id, name, bars, percussion] of expected) {
+      const pattern = drumPatterns.find((item) => item.id === id);
+      expect(pattern).toMatchObject({ id, name, bars });
+      expect(pattern!.description).toContain("Drum 4");
+      expect(pattern!.notes.some(({ midiNote }) => midiNote === percussion)).toBe(true);
+    }
+  });
+
   it.each([
     ["rock-backbeat", 54],
     ["rock-half-time", 56],
@@ -54,12 +76,19 @@ describe("drum patterns", () => {
     ["electro-claves", 75],
     ["breakbeat-bongo", 60],
     ["synthwave-conga", 63],
+    ["pop-modern-backbeat", 54],
+    ["punk-driving-eighths", 54],
+    ["metal-gallop", 56],
+    ["disco-open-hat-drive", 54],
+    ["rock-texas-shuffle", 75],
+    ["latin-pop-conga-pulse", 63],
   ])("arranges %s with its percussion voice and repeats from each section", (id, percussion) => {
     const pattern = drumPatterns.find((item) => item.id === id);
     expect(pattern).toBeDefined();
     expect(pattern!.description).toContain("Drum 4");
     const original = structuredClone(pattern!.notes);
-    expect(new Set(pattern!.notes.map(({ midiNote }) => midiNote))).toEqual(new Set([36, 38, 42, percussion]));
+    const hat = id === "disco-open-hat-drive" ? 46 : 42;
+    expect(new Set(pattern!.notes.map(({ midiNote }) => midiNote))).toEqual(new Set([36, 38, hat, percussion]));
     const arranged = arrangeDrums(pattern!, [section(pattern!.bars * 2), section(1)]);
     const loopBeats = pattern!.bars * 4;
     expect(arranged.filter(({ startBeat }) => startBeat >= loopBeats && startBeat < 2 * loopBeats))

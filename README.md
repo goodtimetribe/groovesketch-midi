@@ -132,16 +132,18 @@ default channels 1, 2, 3, 4, and 10, regardless of playback routing or piano
 roll visibility. Drum notes use the Circuit Tracks mapping described below.
 The export uses the generated tempo and arrangement, not unapplied settings.
 The library includes curated Rock, Jazz, Reggae, Funk, Blues, House, Techno,
-Trance, Electro, Breakbeat, and Synthwave grooves, with multiple variations
-for Rock, Jazz, and Reggae. The genre variations include Drum 4 percussion,
-and each of their descriptions suggests which sample to load; select that
-sample on the Circuit Tracks itself.
+Trance, Electro, Breakbeat, Synthwave, Pop, Punk, Metal, Disco, and Latin Pop
+grooves. The newer foundations include Pop - Modern Backbeat, Punk - Driving
+Eighths, Metal - Gallop, Disco - Open Hat Drive, Rock - Texas Shuffle, and Latin
+Pop - Conga Pulse. The genre variations include Drum 4 percussion, and each of
+their descriptions suggests which sample to load; select that sample on the
+Circuit Tracks itself.
 On playback to a MIDI output whose name contains “Circuit Tracks,” the supported
-GM notes map to Circuit Tracks Drum 1–4: kick 36 to 60, snare 38 to 62,
-closed hat 42 to 64, and tambourine 54, cowbell 56, bongo 60, conga 63,
-maracas (shaker) 70, and claves 75 to 65. The drum-only export uses the same
-mapping. Drum 4 plays its currently selected sample; MIDI does not select it.
-Other outputs and the browser preview keep the source notes.
+GM notes map to Circuit Tracks Drum 1–4: kick 36 to 60, snare 38 to 62, closed
+hat 42 and open hat 46 to 64, and tambourine 54, cowbell 56, bongo 60, conga
+63, maracas (shaker) 70, and claves 75 to 65. The drum-only export uses the
+same mapping. Drum 4 plays its currently selected sample; MIDI does not select
+it. Other outputs and the browser preview keep the source notes.
 Chord notes must load before playback; retry if loading fails. Choose **Download
 Bass MIDI** for bass alone or **Download Bass + Chords MIDI** for a Type 1 MIDI
 file with separate bass and sustained chord tracks.

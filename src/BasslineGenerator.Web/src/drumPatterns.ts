@@ -180,6 +180,66 @@ export const drumPatterns: DrumPattern[] = [
       ...hits("D#4", 63, [[1.75, 70], [3.5, 78], [5.75, 70], [7.25, 80]]),
     ],
   },
+  {
+    id: "pop-modern-backbeat", name: "Pop - Modern Backbeat", bars: 1,
+    description: "A polished backbeat with syncopated kicks and tambourine accents on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 112], [2, 108], [2.75, 94], [3.5, 76]]),
+      ...hits("D2", 38, [[1, 108], [3, 112]]),
+      ...hits("F#2", 42, [[0, 66], [0.5, 76], [1, 68], [1.5, 78], [2, 68], [2.5, 80], [3, 70], [3.5, 82]]),
+      ...hits("F#3", 54, [[1, 74], [3, 82], [3.5, 62]]),
+    ],
+  },
+  {
+    id: "punk-driving-eighths", name: "Punk - Driving Eighths", bars: 1,
+    description: "Fast, eighth-note momentum with hard backbeats and tambourine on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 120], [0.5, 92], [1, 116], [1.5, 88], [2, 120], [2.5, 92], [3, 116], [3.5, 88]]),
+      ...hits("D2", 38, [[1, 118], [3, 122]]),
+      ...hits("F#2", 42, [[0, 72], [0.5, 84], [1, 74], [1.5, 86], [2, 74], [2.5, 86], [3, 76], [3.5, 88]]),
+      ...hits("F#3", 54, [[0.5, 58], [1.5, 62], [2.5, 58], [3.5, 66]]),
+    ],
+  },
+  {
+    id: "metal-gallop", name: "Metal - Gallop", bars: 2,
+    description: "Two bars of driving gallops with heavy backbeats and cowbell reinforcement on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 124], [0.5, 108], [0.75, 116], [1, 122], [1.5, 106], [1.75, 114], [2, 124], [2.5, 108], [2.75, 116], [3, 122], [3.5, 106], [3.75, 114], [4, 124], [4.5, 108], [4.75, 116], [5, 122], [5.5, 106], [5.75, 114], [6, 124], [6.5, 110], [6.75, 118], [7, 122], [7.5, 106], [7.75, 114]]),
+      ...hits("D2", 38, [[1, 120], [3, 124], [5, 120], [7, 124]]),
+      ...hits("F#2", 42, [[0, 68], [0.5, 82], [1, 70], [1.5, 84], [2, 70], [2.5, 84], [3, 72], [3.5, 86], [4, 68], [4.5, 82], [5, 70], [5.5, 84], [6, 70], [6.5, 84], [7, 72], [7.5, 86]]),
+      ...hits("G#3", 56, [[1, 78], [2.75, 64], [3, 84], [5, 78], [6.75, 68], [7, 86]]),
+    ],
+  },
+  {
+    id: "disco-open-hat-drive", name: "Disco - Open Hat Drive", bars: 1,
+    description: "Four-on-the-floor drive with open offbeat hats and tambourine on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 116], [1, 112], [2, 116], [3, 112]]),
+      ...hits("D2", 38, [[1, 108], [3, 112]]),
+      ...hits("A#2", 46, [[0.5, 92], [1.5, 88], [2.5, 96], [3.5, 90]]),
+      ...hits("F#3", 54, [[0, 58], [1, 72], [2, 58], [3, 76]]),
+    ],
+  },
+  {
+    id: "rock-texas-shuffle", name: "Rock - Texas Shuffle", bars: 2,
+    description: "A two-bar Texas shuffle with swinging hats and clave accents on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 114], [2, 104], [3.75, 82], [4, 116], [5.5, 88], [6, 106], [7.75, 84]]),
+      ...hits("D2", 38, [[1, 104], [3, 112], [5, 106], [7, 114], [7.75, 62]]),
+      ...hits("F#2", 42, [[0, 62], [0.75, 72], [1, 64], [1.75, 74], [2, 62], [2.75, 72], [3, 64], [3.75, 76], [4, 64], [4.75, 74], [5, 66], [5.75, 76], [6, 64], [6.75, 74], [7, 66], [7.75, 78]]),
+      ...hits("D#5", 75, [[0.75, 60], [2.25, 70], [3.5, 62], [4.75, 60], [6.25, 74]]),
+    ],
+  },
+  {
+    id: "latin-pop-conga-pulse", name: "Latin Pop - Conga Pulse", bars: 2,
+    description: "An upbeat two-bar Latin pop foundation with a syncopated conga pulse on Drum 4.",
+    notes: [
+      ...hits("C2", 36, [[0, 110], [1.5, 88], [2, 106], [3.75, 76], [4, 110], [5.75, 90], [6, 106], [7.5, 82]]),
+      ...hits("D2", 38, [[1, 98], [3, 104], [5, 98], [7, 106]]),
+      ...hits("F#2", 42, [[0, 62], [0.5, 72], [1, 64], [1.5, 74], [2, 62], [2.5, 74], [3, 64], [3.5, 76], [4, 62], [4.5, 72], [5, 64], [5.5, 74], [6, 62], [6.5, 74], [7, 64], [7.5, 78]]),
+      ...hits("D#4", 63, [[0.75, 72], [1.5, 58], [2.25, 82], [3.25, 64], [4.75, 74], [5.5, 58], [6.75, 84], [7.25, 66]]),
+    ],
+  },
 ];
 
 export function arrangeDrums(pattern: DrumPattern, sections: Section[]): NoteData[] {
