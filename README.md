@@ -163,6 +163,9 @@ hat 42 and open hat 46 to 64, and tambourine 54, cowbell 56, bongo 60, conga
 63, maracas (shaker) 70, and claves 75 to 65. The drum-only export uses the
 same mapping. Drum 4 plays its currently selected sample; MIDI does not select
 it. Other outputs and the browser preview keep the source notes.
+See [RC-500 auxiliary percussion investigation](docs/rc-500-auxiliary-percussion.md)
+for the dedicated-channel feasibility assessment and remaining hardware mapping
+validation.
 Chord notes must load before playback; retry if loading fails. Choose **Download
 Bass MIDI** for bass alone or **Download Bass + Chords MIDI** for a Type 1 MIDI
 file with separate bass and sustained chord tracks.
