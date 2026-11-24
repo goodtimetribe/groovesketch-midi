@@ -5,6 +5,7 @@ const circuitTracksDrumNotes: Record<number, number> = {
   36: 60,
   38: 62,
   42: 64,
+  46: 64,
   54: 65,
   56: 65,
   60: 65,

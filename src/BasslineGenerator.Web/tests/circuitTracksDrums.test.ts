@@ -33,15 +33,15 @@ function readTrackNotes(bytes: Uint8Array): { status: number; pitch: number }[] 
 
 describe("Circuit Tracks drum mapping", () => {
   it("maps supported voices for Circuit Tracks playback without mutating source notes", () => {
-    const notes: NoteData[] = [36, 38, 42, 54, 56, 60, 63, 70, 75, 80].map((midiNote) => ({
+    const notes: NoteData[] = [36, 38, 42, 46, 54, 56, 60, 63, 70, 75, 80].map((midiNote) => ({
       note: "source", midiNote, startBeat: 0, durationBeats: 0.25, velocity: 100,
     }));
     const original = structuredClone(notes);
     expect(notes.map((note) => mapCircuitTracksDrumNote(note, "Circuit Tracks MIDI").midiNote))
-      .toEqual([60, 62, 64, 65, 65, 65, 65, 65, 65, 80]);
+      .toEqual([60, 62, 64, 64, 65, 65, 65, 65, 65, 65, 80]);
     expect(mapCircuitTracksDrumNote(notes[0], "Other MIDI")).toBe(notes[0]);
-    expect(mapCircuitTracksDrumNote(notes[3], "Other MIDI")).toBe(notes[3]);
-    expect(mapCircuitTracksDrumNote(notes[9], "Circuit Tracks MIDI")).toBe(notes[9]);
+    expect(mapCircuitTracksDrumNote(notes[4], "Other MIDI")).toBe(notes[4]);
+    expect(mapCircuitTracksDrumNote(notes[10], "Circuit Tracks MIDI")).toBe(notes[10]);
     expect(notes).toEqual(original);
   });
 
@@ -66,6 +66,8 @@ describe("Circuit Tracks drum mapping", () => {
     "jazz-swing", "jazz-shuffle", "reggae-one-drop", "reggae-steppers",
     "funk-pocket", "blues-shuffle", "house-shaker", "techno-cowbell",
     "trance-tambourine", "electro-claves", "breakbeat-bongo", "synthwave-conga",
+    "pop-modern-backbeat", "punk-driving-eighths", "metal-gallop",
+    "disco-open-hat-drive", "rock-texas-shuffle", "latin-pop-conga-pulse",
   ])(
     "exports all four mapped voices for %s", async (id) => {
       const pattern = drumPatterns.find((item) => item.id === id)!;
