@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { initialRequest } from "../src/domain";
 import PianoRoll from "../src/PianoRoll";
 import { PlaybackTransport } from "../src/playback";
-import { createTracks, readChordNotes, trackNoteColor, tracksForRendering, type TrackViewModel } from "../src/trackView";
+import { createTracks, readChordNotes, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "../src/trackView";
 import type { GenerationPackage, NoteData } from "../src/types";
 
 const bass: NoteData = { note: "C2", midiNote: 36, startBeat: 0, durationBeats: 1, velocity: 127 };
@@ -34,6 +34,7 @@ function midi(chordEvents: number[] = [0, 0x91, 60, 90, 0x83, 0x60, 0x81, 60, 0]
 describe("track view", () => {
   it("creates presentation tracks and handles arbitrary roles, visibility, and focus", () => {
     const tracks = createTracks(pkg, [chord], {});
+    expect(tracks.map((track) => track.name)).toEqual(["Synth1 • Bass", "Synth2 • Chords"]);
     expect(tracks.map((track) => ({ id: track.id, role: track.kind === "track" ? track.role : null, visible: track.visible }))).toEqual([
       { id: "bass", role: "bass", visible: true }, { id: "chords", role: "chords", visible: true },
     ]);
@@ -46,6 +47,18 @@ describe("track view", () => {
     expect(tracksForRendering(createTracks(pkg, [chord], { chords: false }), "bass").map(({ track, ghost }) => [track.id, ghost]))
       .toEqual([["bass", false]]);
     expect(pkg.notes).toEqual([bass]);
+  });
+
+  it("shows every hardware track's current state in its header", () => {
+    const content: MelodicContent = {
+      synth1: { role: "bass", notes: [bass] },
+      synth2: { role: "chords", notes: [chord] },
+      midi1: { role: "lead", notes: [bass] },
+      midi2: { role: "pad", notes: [chord] },
+    };
+    expect(createTracks(pkg, [chord], {}, [], content).map((track) => track.name)).toEqual([
+      "Synth1 • Bass", "Synth2 • Chords", "Midi1 • Lead", "Midi2 • Pad", "Drums • Pattern",
+    ]);
   });
 
   it("reads actual chord pitches, timing, velocity and running status from combined MIDI", () => {
@@ -117,14 +130,14 @@ describe("piano roll", () => {
     await changeSelect("Focus", "chords");
     expect(fills).toContain("rgba(230, 72, 152, 0.35)");
     expect(fills.at(-1)).toBe(`rgba(94, 224, 181, ${0.35 + 90 / 127 * 0.65})`);
-    await act(async () => checkbox("Bass").click());
+    await act(async () => checkbox("Synth1 • Bass").click());
     expect(enabled).toHaveBeenLastCalledWith("synth1", false);
     expect(container.textContent).toContain("Visible notes (1)");
     expect(container.textContent).not.toContain("C2 (36)");
-    await act(async () => checkbox("Chords").click());
+    await act(async () => checkbox("Synth2 • Chords").click());
     expect(enabled).toHaveBeenLastCalledWith("synth2", false);
     expect(container.textContent).toContain("Visible notes (0)");
-    await act(async () => checkbox("Bass").click());
+    await act(async () => checkbox("Synth1 • Bass").click());
     expect(enabled).toHaveBeenLastCalledWith("synth1", true);
     expect(container.textContent).toContain("C2 (36)");
     expect(JSON.stringify(pkg)).toBe(before);
@@ -183,7 +196,7 @@ describe("piano roll", () => {
     expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], drum)).toEqual([255, 210, 66]);
     expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 42 })).toEqual([180, 140, 255]);
     expect(trackNoteColor(createTracks(pkg, [chord], {}, [drum])[2], { ...drum, midiNote: 54 })).toEqual([69, 211, 224]);
-    await act(async () => checkbox("Drums").click());
+    await act(async () => checkbox("Drums • Pattern").click());
     expect(enabled).toHaveBeenLastCalledWith("drums", false);
     expect(container.textContent).not.toContain("D2 (38)");
   });
