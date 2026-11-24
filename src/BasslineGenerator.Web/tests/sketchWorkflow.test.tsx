@@ -142,6 +142,7 @@ it("generates and plays a complete sketch immediately on first load", async () =
   const seed = Number([...container.querySelectorAll("label")].find((item) => item.textContent?.startsWith("Seed"))!.querySelector("input")!.value);
   await act(async () => button("Generate Sketch").click());
   expect(vi.mocked(api.generate)).toHaveBeenCalledWith(expect.objectContaining({ rootNote, scaleType, style, progression, seed }));
+  expect(vi.mocked(api.melody).mock.calls[0][0]).not.toHaveProperty("style");
   const latestLoad = load.mock.calls.at(-1)!;
   expect(latestLoad[2]!.length).toBeGreaterThan(0);
   expect(latestLoad[3]!.synth1).toEqual([bass]);

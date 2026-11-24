@@ -34,7 +34,6 @@ export async function createSketch(pkg: GenerationPackage, pattern: DrumPattern)
       progressionId: pkg.effectiveConfiguration.progressionId,
       sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
       seed: melodySeed(pkg.seed, "midi1"),
-      style: pkg.effectiveConfiguration.style,
     }),
   ]);
   const chordNotes = readChordNotes(await chordBlob.arrayBuffer());
