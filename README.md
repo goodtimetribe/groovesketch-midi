@@ -22,6 +22,10 @@ HTTP client -> BasslineGenerator.Api -> BasslineGenerator.Core -> MIDI in memory
 Core has no dependency on either front end. The CLI writes files only after
 confirmation; the API does not write generated files or request data.
 
+See [the MIDI routing design](docs/midi-routing-design.md) for the logical-role
+model, compatibility strategy, and incremental migration from device-oriented
+track assignments.
+
 ## Build and run
 
 Install the .NET 10 SDK, then from the repository root:
