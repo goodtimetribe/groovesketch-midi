@@ -382,7 +382,6 @@ const Preview = forwardRef<PreviewHandle, {
         progressionId: pkg.effectiveConfiguration.progressionId,
         sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
         seed: melodySeed(action === "vary" ? crypto.getRandomValues(new Int32Array(1))[0] : pkg.seed, track),
-        style: pkg.effectiveConfiguration.style,
       }));
       const seed = action === "vary" ? crypto.getRandomValues(new Int32Array(1))[0] : pkg.seed;
       const generated = await api.replay({
