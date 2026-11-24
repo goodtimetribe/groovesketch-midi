@@ -339,10 +339,10 @@ it("uses the selected pattern and generates every track using the same settings 
   expect(vi.mocked(api.melody)).toHaveBeenCalledWith(expect.objectContaining({ seed: 123, progressionId: "x", sections: [{ bars: 1 }] }));
   expect(container.textContent).toContain("Generated sketch:");
   expect(container.textContent).toContain("Seed 123");
-  expect(container.textContent).toContain("Synth1 · Bass");
-  expect(container.textContent).toContain("Synth2 · Chords");
-  expect(container.textContent).toContain("Midi1 · Lead");
-  expect(container.textContent).toContain("Midi2 · Pad");
+  expect(container.textContent).toContain("Synth1 • Bass");
+  expect(container.textContent).toContain("Synth2 • Chords");
+  expect(container.textContent).toContain("Midi1 • Lead");
+  expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth1 role"]')?.value).toBe("bass");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth2 role"]')?.value).toBe("chords");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Midi1 role"]')?.value).toBe("melody");
@@ -432,11 +432,11 @@ it("replaces edited tracks and reproduces the sketch from its seed", async () =>
   await select("Focus", "synth1");
   await select("Generator", "melody");
   await act(async () => button("Generate Melody").click());
-  expect(container.textContent).toContain("Synth1 · Lead");
+  expect(container.textContent).toContain("Synth1 • Lead");
   await select("Focus", "midi2");
   await select("Generator", "chords");
   await act(async () => button("Generate Chords").click());
-  expect(container.textContent).toContain("Midi2 · Chords");
+  expect(container.textContent).toContain("Midi2 • Chords");
   await select("Drum pattern", "half-time");
   await select("Focus", "drums");
   await act(async () => button("Apply Pattern").click());
@@ -445,10 +445,10 @@ it("replaces edited tracks and reproduces the sketch from its seed", async () =>
   await select("Generator", "pad");
   await select("Drum pattern", "four-on-the-floor");
   await act(async () => button("Generate Sketch").click());
-  expect(container.textContent).toContain("Synth1 · Bass");
+  expect(container.textContent).toContain("Synth1 • Bass");
   expect(container.textContent).toContain("Applied pattern: Four on the floor");
-  expect(container.textContent).not.toContain("Midi2 · Chords");
-  expect(container.textContent).toContain("Midi2 · Pad");
+  expect(container.textContent).not.toContain("Midi2 • Chords");
+  expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.querySelector<HTMLSelectElement>('select[aria-label="Synth2 role"]')?.value).toBe("chords");
   expect(visibleNotes()).toEqual(originalNotes);
   expect(vi.mocked(api.replay)).toHaveBeenCalledWith(expect.objectContaining({ seed: 123 }));
@@ -497,7 +497,7 @@ it("waits for focused generation before allowing a sketch replacement", async ()
   await act(async () => resolve([melody]));
   expect(button("Generate Sketch").disabled).toBe(false);
   expect(button("Download All Tracks MIDI (Circuit Tracks)").disabled).toBe(false);
-  expect(container.textContent).toContain("Midi2 · Lead");
+  expect(container.textContent).toContain("Midi2 • Lead");
 });
 
 it("keeps creative controls available with Settings and piano-roll options collapsed", async () => {
@@ -516,7 +516,7 @@ it("keeps creative controls available with Settings and piano-roll options colla
   expect(selectElement("Generator").closest(".roll-visibility")).not.toBeNull();
   await select("Generator", "melody");
   await act(async () => button("Generate Melody").click());
-  expect(container.textContent).toContain("Midi2 · Lead");
+  expect(container.textContent).toContain("Midi2 • Lead");
 });
 
 it("opens collapsed settings when sketch generation finds invalid inputs", async () => {
@@ -571,6 +571,6 @@ it("keeps the previous sketch intact when pad generation fails", async () => {
   vi.mocked(api.combinedMidi).mockResolvedValueOnce({ arrayBuffer: async () => midi(1, [60, 64]) } as Blob);
   await act(async () => button("Generate Sketch").click());
   expect(container.querySelector('[role="alert"]')?.textContent).toContain("Pad generation requires a triad in every bar.");
-  expect(container.textContent).toContain("Midi2 · Pad");
+  expect(container.textContent).toContain("Midi2 • Pad");
   expect(visibleNotes()).toEqual(before);
 });

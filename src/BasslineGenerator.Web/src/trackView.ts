@@ -15,21 +15,26 @@ export type TrackViewModel = {
 
 const drumIndicator = `linear-gradient(to bottom, rgb(${hardwareTracks.drum1.color.join(", ")}) 0 25%, rgb(${hardwareTracks.drum2.color.join(", ")}) 25% 50%, rgb(${hardwareTracks.drum3.color.join(", ")}) 50% 75%, rgb(${hardwareTracks.drum4.color.join(", ")}) 75% 100%)`;
 
+const trackName = (id: MelodicTrackId) =>
+  id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : "Midi2";
+const roleName = (role: MusicalRole) =>
+  role === "lead" ? "Lead" : role === "bass" ? "Bass" : role === "chords" ? "Chords" : role === "pad" ? "Pad" : role;
+
 export function createTracks(pkg: GenerationPackage, chordNotes: NoteData[], visibility: Record<string, boolean>, drumNotes?: NoteData[], content?: MelodicContent): TrackViewModel[] {
   if (content) return [
     ...melodicTrackIds.map((id): TrackViewModel => ({
-      id, name: `${id === "synth1" ? "Synth1" : id === "synth2" ? "Synth2" : id === "midi1" ? "Midi1" : "Midi2"}${content[id].role ? ` · ${content[id].role === "bass" ? "Bass" : content[id].role === "chords" ? "Chords" : content[id].role === "pad" ? "Pad" : "Lead"}` : ""}`,
+      id, name: `${trackName(id)}${content[id].role ? ` • ${roleName(content[id].role)}` : ""}`,
       kind: "track", hardwareTrackId: id, role: content[id].role ?? "custom",
       visible: visibility[id] ?? true, notes: content[id].notes, indicator: `rgb(${hardwareTracks[id].color.join(", ")})`,
     })),
-    { id: "drums", name: "Drums", kind: "drumGroup", visible: visibility.drums ?? true,
+    { id: "drums", name: "Drums • Pattern", kind: "drumGroup", visible: visibility.drums ?? true,
       notes: drumNotes ?? [], indicator: drumIndicator },
   ];
   return [
-    { id: "bass", name: "Bass", kind: "track", hardwareTrackId: "synth1", role: defaultRoleAssignments.synth1, visible: visibility.bass ?? true, notes: pkg.notes ?? [], indicator: `rgb(${hardwareTracks.synth1.color.join(", ")})` },
-    { id: "chords", name: "Chords", kind: "track", hardwareTrackId: "synth2", role: defaultRoleAssignments.synth2, visible: visibility.chords ?? true, notes: chordNotes, indicator: `rgb(${hardwareTracks.synth2.color.join(", ")})` },
+    { id: "bass", name: "Synth1 • Bass", kind: "track", hardwareTrackId: "synth1", role: defaultRoleAssignments.synth1, visible: visibility.bass ?? true, notes: pkg.notes ?? [], indicator: `rgb(${hardwareTracks.synth1.color.join(", ")})` },
+    { id: "chords", name: "Synth2 • Chords", kind: "track", hardwareTrackId: "synth2", role: defaultRoleAssignments.synth2, visible: visibility.chords ?? true, notes: chordNotes, indicator: `rgb(${hardwareTracks.synth2.color.join(", ")})` },
     ...(drumNotes ? [{
-      id: "drums", name: "Drums", kind: "drumGroup" as const, visible: visibility.drums ?? true, notes: drumNotes,
+      id: "drums", name: "Drums • Pattern", kind: "drumGroup" as const, visible: visibility.drums ?? true, notes: drumNotes,
       indicator: drumIndicator,
     }] : []),
   ];
