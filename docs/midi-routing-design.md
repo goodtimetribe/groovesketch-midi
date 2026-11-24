@@ -11,15 +11,18 @@ logical role -> MIDI channel and output -> receiving device
 
 A role describes musical intent (`bass`, `chords`, `lead`, `pad`, `drums`, or
 `aux-percussion`). It does not name an instrument, a browser track, a DAW track,
-or a hardware lane. A route contains a channel and an opaque output identifier.
-Resolution of that identifier to a Web MIDI output is a front-end concern.
+or a hardware lane. Each logical track has a user-assignable display name, plus a
+route containing a channel and an opaque output identifier. The display name is
+independent of the role: for example, the `bass` role may be named “Moog Bass.”
+Resolution of an output identifier to a Web MIDI output is a front-end concern.
 Standard MIDI files contain channel assignments but cannot select a physical
-output.
+output or carry the route's display name.
 
 `src/BasslineGenerator.Web/src/logicalRoles.ts` is the minimal proof of this
 boundary. It defines device-independent roles, a `RoleRouting` model, validation,
-legacy-role normalization, and reference assignments. In particular, drums may
-use channel 10 while auxiliary percussion independently uses channel 8.
+legacy-role normalization, user-assignable track names, and reference
+assignments. In particular, drums may use channel 10 while auxiliary percussion
+independently uses channel 8.
 The mapping also applies whether the destination is represented by a DAW port,
 a sampler, or hardware; none of those device names belong in the role model.
 
@@ -39,9 +42,11 @@ Migration can be incremental and does not change generation:
    independent route is configured. Until then, they continue to share the
    existing drum route.
 5. Migrate profile storage as a versioned operation, preserving bass, chord,
-   and drum destinations and channels. Add lead, pad, and auxiliary-percussion
-   defaults only when absent; never reinterpret a saved physical-device ID.
-6. In a later UI increment, display route editors by role and use the stable
+   and drum names, destinations, and channels. Add lead, pad, and
+   auxiliary-percussion defaults only when absent; existing unnamed entries use
+   the role's default display name. Never reinterpret a saved physical-device ID.
+6. In a later UI increment, display the user-editable track name beside its role
+   and route, and use the stable
    hardware IDs only for legacy views, colors, and Circuit Tracks compatibility.
 
 This avoids a generation rewrite and allows one route implementation to support
@@ -74,6 +79,9 @@ stored separately from musical generation data.
 drums           -> output RD-8, channel 10
 aux-percussion  -> output RC-500, channel 8
 ```
+
+Both rows may be renamed by the user without changing their roles or output
+assignments.
 
 When scheduling, notes classified as kick/snare/hats use the drums route, while
 Drum 4-style notes use the auxiliary route. If that route is absent, migration

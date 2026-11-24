@@ -6,6 +6,7 @@ export const logicalRoles = [
 export type LogicalRole = typeof logicalRoles[number];
 
 export interface RoleRoute {
+  name: string;
   outputId: string | null;
   channel: number;
 }
@@ -13,12 +14,12 @@ export interface RoleRoute {
 export type RoleRouting = Partial<Record<LogicalRole, RoleRoute>>;
 
 export const legacyRoleRouting: Readonly<RoleRouting> = Object.freeze({
-  bass: { outputId: null, channel: 0 },
-  chords: { outputId: null, channel: 1 },
-  lead: { outputId: null, channel: 2 },
-  pad: { outputId: null, channel: 3 },
-  drums: { outputId: null, channel: 9 },
-  "aux-percussion": { outputId: null, channel: 7 },
+  bass: { name: "Bass", outputId: null, channel: 0 },
+  chords: { name: "Chords", outputId: null, channel: 1 },
+  lead: { name: "Lead", outputId: null, channel: 2 },
+  pad: { name: "Pad", outputId: null, channel: 3 },
+  drums: { name: "Drums", outputId: null, channel: 9 },
+  "aux-percussion": { name: "Aux Percussion", outputId: null, channel: 7 },
 });
 
 export function logicalRoleForLegacyRole(role: string): LogicalRole | null {
@@ -38,7 +39,8 @@ export function validateRoleRouting(routing: RoleRouting): void {
   for (const [role, route] of Object.entries(routing) as [LogicalRole, RoleRoute][]) {
     if (!logicalRoles.includes(role))
       throw new RangeError(`Unknown logical role: ${role}`);
-    if (!route || (route.outputId !== null && typeof route.outputId !== "string")
+    if (!route || typeof route.name !== "string" || !route.name.trim()
+      || (route.outputId !== null && typeof route.outputId !== "string")
       || !Number.isInteger(route.channel) || route.channel < 0 || route.channel > 15)
       throw new RangeError(`The ${role} route is invalid.`);
   }
@@ -47,4 +49,12 @@ export function validateRoleRouting(routing: RoleRouting): void {
 export function routeForRole(routing: RoleRouting, role: LogicalRole): RoleRoute | undefined {
   validateRoleRouting(routing);
   return routing[role];
+}
+
+export function renameRoleTrack(routing: RoleRouting, role: LogicalRole, name: string): RoleRouting {
+  const route = routeForRole(routing, role);
+  if (!route) throw new RangeError(`The ${role} route is missing.`);
+  const renamed = { ...route, name: name.trim() };
+  validateRoleRouting({ [role]: renamed });
+  return { ...routing, [role]: renamed };
 }
