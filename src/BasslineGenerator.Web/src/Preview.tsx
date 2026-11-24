@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createAllTracksMidi } from "./allTracksMidi";
-import PianoRoll, { type FocusTrack, type GeneratorType } from "./PianoRoll";
+import PianoRoll, { type FocusTrack } from "./PianoRoll";
 import { api, download } from "./api";
 import { createCircuitTracksDrumMidi } from "./circuitTracksDrums";
 import { arrangeDrums, drumPatterns } from "./drumPatterns";
@@ -14,6 +14,7 @@ import { PlaybackTransport, type PlaybackState } from "./playback";
 import { validateMelodyNotes, type Sketch } from "./sketch";
 import { readChordNotes, type MelodicContent } from "./trackView";
 import { browserSounds, defaultTrackSounds, isBrowserSoundId, type BrowserSoundId, type TrackSounds } from "./trackSounds";
+import { varyChordNotes, varyRhythmNotes, type ActionableRole, type TrackAction } from "./trackActions";
 import {
   defaultRoutingProfiles, deleteProfile, loadRoutingProfiles, putProfile, resolveOutput, saveRoutingProfiles,
   routingProfilesKey, type Routing, type RoutingProfiles,
@@ -103,19 +104,35 @@ const Preview = forwardRef<PreviewHandle, {
   const [localPatternId, setLocalPatternId] = useState("");
   const patternId = patternSelection?.id ?? localPatternId;
   const setPatternId = patternSelection?.onChange ?? setLocalPatternId;
-  const [appliedPattern, setAppliedPattern] = useState(() => ({ pkg, id: sketch?.pkg === pkg ? sketch.patternId : "" }));
-  const appliedPatternId = appliedPattern.pkg === pkg ? appliedPattern.id : sketch?.pkg === pkg ? sketch.patternId : appliedPattern.id;
-  const setAppliedPatternId = (id: string) => setAppliedPattern({ pkg, id });
+  const [appliedPattern, setAppliedPattern] = useState(() => {
+    const id = sketch?.pkg === pkg ? sketch.patternId : "";
+    return { pkg, drums: { id, seed: null }, aux: { id, seed: null } };
+  });
+  const currentAppliedPattern = appliedPattern.pkg === pkg
+    ? appliedPattern
+    : sketch?.pkg === pkg
+      ? { pkg, drums: { id: sketch.patternId, seed: null }, aux: { id: sketch.patternId, seed: null } }
+      : appliedPattern;
   const [content, setContent] = useState(() => ({ pkg, tracks: sketch?.pkg === pkg ? sketch.tracks : initialContent(pkg) }));
   const tracks = useMemo(() => content.pkg === pkg ? content.tracks : sketch?.pkg === pkg ? sketch.tracks : initialContent(pkg), [content, pkg, sketch]);
   const [generating, setGenerating] = useState(false);
   const generationRevision = useRef(0);
   const selectedPattern = drumPatterns.find((item) => item.id === patternId);
   const drumNotes = useMemo(() => {
-    if (sketch?.pkg === pkg && sketch.patternId === appliedPatternId) return sketch.drumNotes;
-    const pattern = drumPatterns.find((item) => item.id === appliedPatternId);
-    return pattern ? arrangeDrums(pattern, pkg.effectiveConfiguration.sections) : [];
-  }, [appliedPatternId, pkg, sketch]);
+    const part = (role: "drums" | "aux") => {
+      const applied = role === "drums" ? currentAppliedPattern.drums : currentAppliedPattern.aux;
+      if (sketch?.pkg === pkg && sketch.patternId === applied.id && applied.seed === null) {
+        return sketch.drumNotes.filter((note) => role === "drums"
+          ? [36, 38, 42].includes(note.midiNote) : ![36, 38, 42].includes(note.midiNote));
+      }
+      const pattern = drumPatterns.find((item) => item.id === applied.id);
+      if (!pattern) return [];
+      const notes = arrangeDrums(pattern, pkg.effectiveConfiguration.sections).filter((note) => role === "drums"
+        ? [36, 38, 42].includes(note.midiNote) : ![36, 38, 42].includes(note.midiNote));
+      return applied.seed === null ? notes : varyRhythmNotes(notes, applied.seed);
+    };
+    return [...part("drums"), ...part("aux")].sort((a, b) => a.startBeat - b.startBeat);
+  }, [currentAppliedPattern, pkg, sketch]);
   const drumNotesRef = useRef(drumNotes);
   drumNotesRef.current = drumNotes;
   const [profileName, setProfileName] = useState(initialProfile?.name ?? "");
@@ -170,7 +187,10 @@ const Preview = forwardRef<PreviewHandle, {
   useImperativeHandle(ref, () => ({ stop: () => transport.stop() }), [transport]);
   useEffect(() => {
     setContent({ pkg, tracks: sketch?.pkg === pkg ? sketch.tracks : initialContent(pkg) });
-    setAppliedPattern((current) => current.pkg === pkg ? current : { pkg, id: sketch?.pkg === pkg ? sketch.patternId : current.id });
+    setAppliedPattern((current) => current.pkg === pkg ? current : {
+      pkg, drums: { id: sketch?.pkg === pkg ? sketch.patternId : current.drums.id, seed: null },
+      aux: { id: sketch?.pkg === pkg ? sketch.patternId : current.aux.id, seed: null },
+    });
     setGenerating(false);
     return () => { generationRevision.current++; };
   }, [pkg, sketch]);
@@ -328,31 +348,43 @@ const Preview = forwardRef<PreviewHandle, {
       setError(e instanceof Error ? e.message : "The all-tracks MIDI file could not be created.");
     }
   };
-  const generateTrack = (track: FocusTrack, generator: GeneratorType) => {
-    if (generator === "drums") {
-      if (track === "drums" && selectedPattern) setAppliedPatternId(selectedPattern.id);
+  const generateTrack = (track: FocusTrack, role: ActionableRole, action: TrackAction) => {
+    if (role === "drums" || role === "aux-percussion") {
+      if (track !== "drums" || !selectedPattern || (action !== "apply" && action !== "vary")) return;
+      const key = role === "drums" ? "drums" : "aux";
+      setAppliedPattern((current) => ({
+        ...current, pkg,
+        [key]: {
+          id: selectedPattern.id,
+          seed: action === "vary" ? crypto.getRandomValues(new Int32Array(1))[0] : null,
+        },
+      }));
       return;
     }
-    if (track === "drums" || generating) return;
+    if (track === "drums" || generating || (action !== "rebuild" && action !== "vary")) return;
     const revision = ++generationRevision.current;
     setGenerating(true);
     setError("");
     const generate = async () => {
-      if (generator === "chords") return readChordNotes(await (await api.combinedMidi(pkg)).arrayBuffer());
-      if (generator === "pad") {
+      if (role === "chords") {
+        const notes = readChordNotes(await (await api.combinedMidi(pkg)).arrayBuffer());
+        return action === "vary" ? varyChordNotes(notes, crypto.getRandomValues(new Int32Array(1))[0]) : notes;
+      }
+      if (role === "pad") {
         if (!readyChords || readyChords.error) throw new Error("Chord notes are not ready for pad generation.");
         const bars = pkg.effectiveConfiguration.sections.reduce((sum, section) => sum + section.bars, 0);
-        return generatePad(readyChords.notes, bars, pkg.seed, track);
+        const seed = action === "vary" ? crypto.getRandomValues(new Int32Array(1))[0] : pkg.seed;
+        return generatePad(readyChords.notes, bars, seed, track);
       }
-      if (generator === "melody") return validateMelodyNotes(await api.melody({
+      if (role === "lead") return validateMelodyNotes(await api.melody({
         rootNote: pkg.effectiveConfiguration.rootNote,
         scaleType: pkg.effectiveConfiguration.scaleType,
         progressionId: pkg.effectiveConfiguration.progressionId,
         sections: pkg.effectiveConfiguration.sections.map(({ bars }) => ({ bars })),
-        seed: melodySeed(pkg.seed, track),
+        seed: melodySeed(action === "vary" ? crypto.getRandomValues(new Int32Array(1))[0] : pkg.seed, track),
         style: pkg.effectiveConfiguration.style,
       }));
-      const seed = crypto.getRandomValues(new Int32Array(1))[0];
+      const seed = action === "vary" ? crypto.getRandomValues(new Int32Array(1))[0] : pkg.seed;
       const generated = await api.replay({
         ...pkg, seed, notes: null, statistics: null,
         effectiveConfiguration: { ...pkg.effectiveConfiguration, seed, requestedProgression: pkg.effectiveConfiguration.progressionId },
@@ -363,7 +395,7 @@ const Preview = forwardRef<PreviewHandle, {
     void generate().then((notes) => {
       if (generationRevision.current !== revision) return;
       setContent((current) => current.pkg === pkg
-        ? { ...current, tracks: { ...current.tracks, [track]: { role: generator === "melody" ? "lead" : generator, notes } } }
+        ? { ...current, tracks: { ...current.tracks, [track]: { role, notes } } }
         : current);
     }).catch((e: unknown) => {
       if (generationRevision.current === revision)
@@ -411,9 +443,11 @@ const Preview = forwardRef<PreviewHandle, {
       </select>
     </label>
     {selectedPattern && <p className="hint">{selectedPattern.description}</p>}</>}
-    <p className="hint">Select a pattern, then regenerate Drums above the piano roll to apply it.</p>
-    <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === appliedPatternId)?.name ?? "None"}</p>
-    <button type="button" disabled={sketchBusy || !appliedPatternId} onClick={() => setAppliedPatternId("")}>Clear Drums</button>
+    <p className="hint">Select a pattern, then apply it to Drums or Aux Percussion above the piano roll.</p>
+    <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === currentAppliedPattern.drums.id)?.name ?? "None"}</p>
+    <p className="hint">Applied aux percussion pattern: {drumPatterns.find((pattern) => pattern.id === currentAppliedPattern.aux.id)?.name ?? "None"}</p>
+    <button type="button" disabled={sketchBusy || (!currentAppliedPattern.drums.id && !currentAppliedPattern.aux.id)}
+      onClick={() => setAppliedPattern({ pkg, drums: { id: "", seed: null }, aux: { id: "", seed: null } })}>Clear Drums</button>
     <p className="hint">Exports the applied drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>
   </div>;
   const drumDownload = <button type="button" disabled={!drumNotes.length} onClick={() => { onPreviewDownload?.(); downloadCircuitTracksDrums(); }}>Download Circuit Tracks Drum MIDI</button>;
