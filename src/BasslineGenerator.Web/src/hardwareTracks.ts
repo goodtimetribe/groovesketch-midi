@@ -1,3 +1,5 @@
+import type { LogicalRole } from "./logicalRoles";
+
 export const hardwareTrackIds = [
   "synth1", "synth2", "midi1", "midi2", "drum1", "drum2", "drum3", "drum4",
 ] as const;
@@ -6,9 +8,8 @@ export type HardwareTrackId = typeof hardwareTrackIds[number];
 export type DrumTrackId = Extract<HardwareTrackId, `drum${number}`>;
 export type MelodicTrackId = Exclude<HardwareTrackId, DrumTrackId>;
 export const melodicTrackIds: readonly MelodicTrackId[] = ["synth1", "synth2", "midi1", "midi2"];
-export type MusicalRole =
-  | "bass" | "chords" | "lead" | "pad" | "keys" | "strings" | "brass" | "arp"
-  | "kick" | "snare" | "hats" | "percussion" | "custom";
+export type MusicalRole = LogicalRole | "kick" | "snare" | "hats" | "percussion";
+export type { LogicalRole };
 export type RgbColor = readonly [red: number, green: number, blue: number];
 
 export const hardwareTracks = {
