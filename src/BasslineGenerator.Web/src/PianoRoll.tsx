@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PlaybackState, PlaybackTransport } from "./playback";
 import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "./trackView";
-import { melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
+import { hardwareTracks, melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
 import { actionLabel, actionsForRole, defaultActionForRole, legacyMelodyRole, roleLabel,
   actionButtonLabel, actionDescription, type ActionableRole, type TrackAction } from "./trackActions";
 import type { GenerationPackage, NoteData } from "./types";
@@ -115,6 +115,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
   const [barsVisible, setBarsVisible] = useState(8);
   const [selected, setSelected] = useState<{ trackId: string; note: NoteData } | null>(null);
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
+  const [quickConfirmation, setQuickConfirmation] = useState<string | null>(null);
   const [focus, setFocus] = useState(workflow ? "synth1" : "bass");
   const tracks = useMemo(() => createTracks(pkg, chordNotes, visibility, drumNotes, workflow?.content), [pkg, chordNotes, visibility, drumNotes, workflow?.content]);
   const rendering = useMemo(() => tracksForRendering(tracks, focus), [tracks, focus]);
@@ -126,7 +127,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
   const low = notes.length ? Math.max(0, notes.reduce((a, n) => Math.min(a, n.midiNote), 127) - 1) : 35;
   const high = notes.length ? Math.min(127, notes.reduce((a, n) => Math.max(a, n.midiNote), 0) + 1) : 48;
 
-  useEffect(() => { setStartBar(0); setSelected(null); }, [pkg]);
+  useEffect(() => { setStartBar(0); setSelected(null); setQuickConfirmation(null); }, [pkg]);
   useEffect(() => {
     if (playbackState === "stopped") setStartBar(0);
   }, [playbackState]);
@@ -199,6 +200,33 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     .filter((n) => n.startBeat + n.durationBeats > start * 4 && n.startBeat < (start + barsVisible) * 4)
     .map((note) => ({ track, note })));
   const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible && track.notes.includes(selected.note));
+  const quickTrackForRole = (role: Exclude<ActionableRole, "drums" | "aux-percussion">): MelodicTrackId => {
+    const assigned = melodicTrackIds.find((id) => workflow?.content[id].role === role);
+    const defaultTrack: Record<typeof role, MelodicTrackId> = {
+      bass: "synth1", chords: "synth2", lead: "midi1", pad: "midi2",
+    };
+    return assigned ?? defaultTrack[role];
+  };
+  const quickRoles: { role: ActionableRole; track: FocusTrack; actions: readonly TrackAction[]; color: string }[] = workflow ? [
+    ...(["bass", "chords", "lead", "pad"] as const).map((role) => {
+      const track = quickTrackForRole(role);
+      return { role, track, actions: actionsForRole[role], color: `rgb(${hardwareTracks[track].color.join(", ")})` };
+    }),
+    { role: "drums", track: "drums", actions: actionsForRole.drums, color: `rgb(${hardwareTracks.drum1.color.join(", ")})` },
+    ...(drumNotes?.some((note) => ![36, 38, 42].includes(note.midiNote)) ? [{
+      role: "aux-percussion" as const, track: "drums" as const, actions: actionsForRole["aux-percussion"],
+      color: `rgb(${hardwareTracks.drum4.color.join(", ")})`,
+    }] : []),
+  ] : [];
+  const performQuickAction = (track: FocusTrack, role: ActionableRole, action: TrackAction) => {
+    const key = `${track}:${role}:${action}`;
+    if (action === "rebuild" && quickConfirmation !== key) {
+      setQuickConfirmation(key);
+      return;
+    }
+    workflow?.generate(track, role, action);
+    setQuickConfirmation(null);
+  };
   return <section className="roll card" aria-label="Note View">
     <div className="section-title"><div><p className="eyebrow">NOTE VIEW</p><h2>Piano roll</h2></div></div>
     <div className="roll-canvas">
@@ -211,6 +239,21 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
         onChange={(e) => setStartBar(Math.max(0, Math.min(maxStart, Number(e.target.value) - 1)))} /></label>
       <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
       <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
+      {quickRoles.map(({ role, track, actions, color }) => <div className="quick-role-actions" key={role} style={{ "--role-color": color } as CSSProperties}>
+        <span className="quick-role-name" title={roleLabel[role]}>{roleLabel[role]}</span>
+        {actions.map((action) => {
+          const key = `${track}:${role}:${action}`;
+          const confirming = quickConfirmation === key;
+          const icon = action === "rebuild" ? "↻" : action === "apply" ? "♪" : "✨";
+          return <button key={action} className="quick-action" type="button"
+            aria-label={confirming ? `Confirm ${actionButtonLabel(action, role)}` : actionButtonLabel(action, role)}
+            title={`${confirming ? "Confirm " : ""}${actionLabel[action]} — ${roleLabel[role]}`}
+            disabled={workflow!.busy || workflow!.disabled || ((role === "drums" || role === "aux-percussion") && !workflow!.patternSelected)}
+            onClick={() => performQuickAction(track, role, action)}>
+            {confirming ? "✓" : icon}
+          </button>;
+        })}
+      </div>)}
     </div>
     <details className="roll-options" open>
     <summary>Arrangement &amp; focus</summary>
