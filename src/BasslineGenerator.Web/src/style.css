@@ -121,7 +121,6 @@ summary { cursor: pointer; font-weight: 700; }
 .track-controls legend { float: left; margin-right: 12px; font-size: .85rem; font-weight: 700; }
 .track-controls label { margin: 6px 0; }
 .track-controls > label { flex-direction: row; align-items: center; }
-.roll-visibility > label { margin-left: auto; }
 .roll-visibility > details { flex: 1 1 100%; }
 .roll-visibility fieldset { flex: 1 1 100%; gap: 6px; }
 .track-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex: 1 1 220px; min-width: 0; }

@@ -239,6 +239,9 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
         onChange={(e) => setStartBar(Math.max(0, Math.min(maxStart, Number(e.target.value) - 1)))} /></label>
       <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
       <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
+      <label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
+        {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}
+      </select></label>
       {quickRoles.map(({ role, track, actions, color }) => <div
         className={`quick-role-actions${focus === track ? " is-focused" : ""}`} key={role}
         style={{ "--role-color": color } as CSSProperties}>
@@ -292,9 +295,6 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
           }} />)}
       </fieldset>
       </details>
-      <label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
-        {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}
-      </select></label>
     </div>
     <p className="hint">Notes are read-only. Unfocused tracks are ghosted; brighter notes have higher velocity. Track checkboxes control visibility and playback, not export. The preview instrument may sound different from your DAW.</p>
     <details><summary>Visible notes ({visibleNotes.length})</summary>
