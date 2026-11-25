@@ -237,6 +237,8 @@ describe("piano roll", () => {
     expect(quickActions.querySelector('[aria-label="Replace Bass"]')?.textContent).toBe("↻");
     expect(quickActions.querySelector('[aria-label="Create Bass Variation"]')?.textContent).toBe("✨");
     expect(quickActions.querySelector('[aria-label="Use Drums Pattern"]')?.textContent).toBe("♪");
+    expect(quickActions.querySelector('[aria-label="Create Drums Variation"]')?.getAttribute("title"))
+      .toContain("selected pattern while keeping its pattern family");
     expect(quickActions.querySelector('[aria-label="Use Aux Percussion Pattern"]')).not.toBeNull();
     expect(quickActions.querySelector('[aria-label="Replace Lead"]')?.getAttribute("title")).toContain("new content");
 
@@ -249,6 +251,15 @@ describe("piano roll", () => {
     expect(generate).toHaveBeenLastCalledWith("synth1", "bass", "vary");
     await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Use Aux Percussion Pattern"]')!.click());
     expect(generate).toHaveBeenLastCalledWith("drums", "aux-percussion", "apply");
+
+    const drumAction = container.querySelector<HTMLSelectElement>('[aria-label="Drums action"]')!;
+    await act(async () => {
+      drumAction.value = "vary";
+      drumAction.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(container.querySelector('[aria-label="Create Drums Variation on Drums"]')).not.toBeNull();
+    expect(container.querySelector("#track-action-hint-drums")?.textContent)
+      .toContain("selected pattern while keeping its pattern family");
 
     await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped"
       chordNotes={[chord]} drumNotes={[drum]} workflow={{ ...workflow, patternSelected: false }} />));
