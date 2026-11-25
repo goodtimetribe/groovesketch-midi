@@ -117,17 +117,6 @@ summary { cursor: pointer; font-weight: 700; }
 .section-selection { flex: 1 1 240px; min-width: 0; }
 .pattern-controls button { margin: 8px 8px 8px 0; }
 .roll-options { margin: 8px 0; padding-top: 8px; }
-.track-controls, .track-controls fieldset { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.track-controls legend { float: left; margin-right: 12px; font-size: .85rem; font-weight: 700; }
-.track-controls label { margin: 6px 0; }
-.track-controls > label { flex-direction: row; align-items: center; }
-.roll-visibility > details { flex: 1 1 100%; }
-.roll-visibility fieldset { flex: 1 1 100%; gap: 6px; }
-.track-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; flex: 1 1 220px; min-width: 0; }
-.track-row .check { flex: 1 0 auto; white-space: nowrap; }
-.track-row select { width: auto; min-width: 0; flex: 1 1 80px; padding: 5px; }
-.track-row button { padding: 5px 9px; }
-.track-action-hint, .track-actions-guide { flex-basis: 100%; margin: 0; }
 .track-indicator { display: inline-block; width: .8rem; height: .8rem; border: 1px solid #e6ecf5; border-radius: 2px; box-shadow: 0 0 0 1px #101520; }
 .roll-canvas { position: relative; }
 .playhead { position: absolute; top: 26px; bottom: 1px; width: 2px; background: #ffe294; pointer-events: none; }
@@ -140,10 +129,15 @@ summary { cursor: pointer; font-weight: 700; }
 .roll-nav label { flex-direction: row; align-items: center; margin: 0; }
 .roll-nav input { width: 75px; }
 .roll-nav span { color: #aab9ca; }
+.roll-track-selectors { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.roll-track-selector { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.roll-nav .roll-track-toggle { display: inline-flex; gap: 4px; }
+.roll-nav .roll-track-toggle input { width: auto; margin: 0; }
+.roll-track-focus { padding: 3px 6px; font-size: .75rem; }
 .quick-role-actions { display: inline-flex; align-items: center; gap: 4px; padding-left: 8px; border-left: 2px solid var(--role-color); white-space: nowrap; }
 .quick-role-actions.is-focused { box-shadow: 0 0 0 1px var(--role-color); border-radius: 6px; }
-.quick-role-name { color: var(--role-color); font-size: .75rem; font-weight: 700; background: transparent; border: 0; padding: 3px 4px; }
-.quick-role-actions.is-focused .quick-role-name { color: #101520; background: var(--role-color); }
+.quick-role-label { color: var(--role-color); font-size: .75rem; font-weight: 700; padding: 3px 4px; }
+.quick-role-actions.is-focused .quick-role-label { color: #101520; background: var(--role-color); border-radius: 4px; }
 .roll-nav .quick-action { min-width: 30px; padding: 3px 7px; border-color: var(--role-color); }
 .note-list { max-height: 260px; overflow: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; }
