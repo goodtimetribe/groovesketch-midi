@@ -113,24 +113,27 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     };
     return assigned ?? defaultTrack[role];
   };
-  const quickRoles: { role: ActionableRole; track: FocusTrack; actions: readonly TrackAction[]; color: string }[] = workflow ? [
+  const quickRoles: { role: ActionableRole; actions: readonly TrackAction[]; color: string }[] = workflow ? [
     ...(["bass", "chords", "lead", "pad"] as const).map((role) => {
       const track = quickTrackForRole(role);
-      return { role, track, actions: actionsForRole[role], color: `rgb(${hardwareTracks[track].color.join(", ")})` };
+      return { role, actions: actionsForRole[role], color: `rgb(${hardwareTracks[track].color.join(", ")})` };
     }),
-    { role: "drums", track: "drums", actions: actionsForRole.drums, color: `rgb(${hardwareTracks.drum1.color.join(", ")})` },
+    { role: "drums", actions: actionsForRole.drums, color: `rgb(${hardwareTracks.drum1.color.join(", ")})` },
     ...(drumNotes?.some((note) => ![36, 38, 42].includes(note.midiNote)) ? [{
-      role: "aux-percussion" as const, track: "drums" as const, actions: actionsForRole["aux-percussion"],
+      role: "aux-percussion" as const, actions: actionsForRole["aux-percussion"],
       color: `rgb(${hardwareTracks.drum4.color.join(", ")})`,
     }] : []),
   ] : [];
-  const performQuickAction = (track: FocusTrack, role: ActionableRole, action: TrackAction) => {
-    const key = `${track}:${role}:${action}`;
+  const focusedRole = focus === "drums" ? "drums" : workflow?.content[focus as MelodicTrackId]?.role;
+  const performQuickAction = (role: ActionableRole, action: TrackAction) => {
+    const key = `${focus}:${role}:${action}`;
     if (action === "rebuild" && quickConfirmation !== key) {
       setQuickConfirmation(key);
       return;
     }
-    workflow?.generate(track, role, action);
+    const target = role === "drums" || role === "aux-percussion"
+      ? "drums" : focus === "drums" ? quickTrackForRole(role) : focus as FocusTrack;
+    workflow?.generate(target, role, action);
     setQuickConfirmation(null);
   };
   return <section className="roll card" aria-label="Note View">
@@ -162,19 +165,19 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
             aria-pressed={focus === track.id} onClick={() => setFocus(track.id)}>{track.name}</button>
         </div>)}
       </div>
-      {quickRoles.map(({ role, track, actions, color }) => <div
-        className={`quick-role-actions${focus === track ? " is-focused" : ""}`} key={role}
+      {quickRoles.map(({ role, actions, color }) => <div
+        className={`quick-role-actions${focusedRole === role ? " is-focused" : ""}`} key={role}
         style={{ "--role-color": color } as CSSProperties}>
         <span className="quick-role-label">{roleLabel[role]}</span>
         {actions.map((action) => {
-          const key = `${track}:${role}:${action}`;
+          const key = `${focus}:${role}:${action}`;
           const confirming = quickConfirmation === key;
           const icon = action === "rebuild" ? "↻" : action === "apply" ? "♪" : "✨";
           return <button key={action} className="quick-action" type="button"
             aria-label={confirming ? `Confirm ${actionButtonLabel(action, role)}` : actionButtonLabel(action, role)}
             title={`${confirming ? "Confirm " : ""}${actionLabel[action]} — ${roleLabel[role]}: ${actionDescriptionForRole(action, role)}`}
             disabled={workflow!.busy || workflow!.disabled || ((role === "drums" || role === "aux-percussion") && !workflow!.patternSelected)}
-            onClick={() => performQuickAction(track, role, action)}>
+            onClick={() => performQuickAction(role, action)}>
             {confirming ? "✓" : icon}
           </button>;
         })}

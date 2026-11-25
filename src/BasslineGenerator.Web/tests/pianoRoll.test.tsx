@@ -151,7 +151,7 @@ describe("piano roll", () => {
     expect(container.querySelector(".track-actions-options")).toBeNull();
     const barsShown = [...navigation.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Bars shown"));
     expect(barsShown?.querySelector("select")).not.toBeNull();
-    expect(visibility.querySelector("label")?.textContent).not.toContain("Bars shown");
+    expect(selectors.textContent).not.toContain("Bars shown");
     await act(async () => button("C2 (36)").click());
     expect(container.textContent).toContain("Selected: C2, beat 0, length 1, velocity 127.");
     await changeSelect("Bars shown", "4");
@@ -249,7 +249,7 @@ describe("piano roll", () => {
     await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Confirm Replace Lead"]')!.click());
     expect(generate).toHaveBeenLastCalledWith("midi2", "lead", "rebuild");
     await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Create Bass Variation"]')!.click());
-    expect(generate).toHaveBeenLastCalledWith("synth1", "bass", "vary");
+    expect(generate).toHaveBeenLastCalledWith("midi2", "bass", "vary");
     await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Use Aux Percussion Pattern"]')!.click());
     expect(generate).toHaveBeenLastCalledWith("drums", "aux-percussion", "apply");
 

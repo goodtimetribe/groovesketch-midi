@@ -51,25 +51,15 @@ let container: HTMLDivElement;
 let root: Root;
 let output: { id: string; name: string; state: string; send: ReturnType<typeof vi.fn>; clear: ReturnType<typeof vi.fn> };
 
+const hardwareName = (track: string) => track === "synth1" ? "Synth1" : track === "synth2" ? "Synth2"
+  : track === "midi1" ? "Midi1" : track === "midi2" ? "Midi2" : "Drums";
+
 function button(name: string) {
   if (name === "Apply Pattern") name = "Use Drums Pattern";
-  else if (name.startsWith("Regenerate ")) {
-    const hardware = name.slice("Regenerate ".length);
-    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${hardware} role"]`)?.value;
-    if (!role) name = `Choose a role for ${hardware}`;
-    else {
-      const actionName = role === "bass" ? "Create Bass Variation" : role === "drums" ? "Use Drums Pattern"
-        : role === "aux-percussion" ? "Use Aux Percussion Pattern" : `Replace ${role === "lead" ? "Lead" : role === "pad" ? "Pad" : "Chords"}`;
-      name = `${actionName} on ${hardware}`;
-    }
-  } else if (/^Generate (Bass|Chords|Melody|Pad)$/.test(name)) {
-    const focus = selectElement("Focus").value;
-    const hardware = focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : "Midi2";
-    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${hardware} role"]`)?.value;
-    const roleLabel = role === "lead" ? "Lead" : role === "pad" ? "Pad" : role === "chords" ? "Chords" : "Bass";
-    name = `${role === "bass" ? `Create ${roleLabel} Variation` : `Replace ${roleLabel}`} on ${hardware}`;
-  }
-  if (name === "Use Drums Pattern") name = "Use Drums Pattern on Drums";
+  else if (name === "Generate Bass") name = "Create Bass Variation";
+  else if (name === "Generate Chords") name = "Replace Chords";
+  else if (name === "Generate Melody") name = "Replace Lead";
+  else if (name === "Generate Pad") name = "Replace Pad";
   const action = container.querySelector<HTMLButtonElement>(`button[aria-label="${name}"]`);
   if (action) return action;
   const result = [...container.querySelectorAll("button")].find((item) => item.textContent === name);
@@ -80,24 +70,25 @@ function button(name: string) {
 async function clickButton(name: string) {
   const first = button(name);
   await act(async () => first.click());
-  if (first.textContent?.startsWith("Confirm Replace")) await act(async () => first.click());
+  if (first.getAttribute("aria-label")?.startsWith("Confirm Replace")) await act(async () => first.click());
 }
 
 function selectElement(label: string): HTMLSelectElement {
-  if (label === "Generator") {
-    const focus = selectElement("Focus").value;
-    const name = focus === "synth1" ? "Synth1" : focus === "synth2" ? "Synth2" : focus === "midi1" ? "Midi1" : focus === "midi2" ? "Midi2" : "Drums";
-    const role = container.querySelector<HTMLSelectElement>(`select[aria-label="${name} role"]`);
-    if (role) return role;
-  }
   const result = [...container.querySelectorAll("label")].find((item) => item.textContent?.startsWith(label))?.querySelector("select");
   if (!result) throw new Error(`Missing select: ${label}`);
   return result;
 }
 
 async function select(label: string, value: string) {
+  if (label === "Focus") {
+    const name = hardwareName(value);
+    const focus = [...container.querySelectorAll<HTMLButtonElement>(".roll-track-focus")]
+      .find((item) => item.textContent?.startsWith(name));
+    if (!focus) throw new Error(`Missing track focus: ${name}`);
+    await act(async () => focus.click());
+    return;
+  }
   const control = selectElement(label);
-  if (label === "Generator" && value === "melody") value = "lead";
   await act(async () => { control.value = value; control.dispatchEvent(new Event("change", { bubbles: true })); });
 }
 
@@ -139,14 +130,8 @@ afterEach(async () => {
 it("generates into the focused destination, preserving other tracks and routing playback by track", async () => {
   const original = JSON.stringify(pkg);
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
-  const melody = [...selectElement("Generator").options].find((option) => option.text === "Lead");
-  expect(melody?.disabled).toBe(false);
-  await select("Generator", "melody");
-  expect(selectElement("Generator").value).toBe("lead");
-
+  expect(button("Generate Melody").disabled).toBe(false);
   await select("Focus", "midi1");
-  await select("Generator", "chords");
-  expect(selectElement("Generator").querySelector('option[value="drums"]')).toBeNull();
   await clickButton("Generate Chords");
   expect(container.textContent).toContain("Midi1 • Chords");
   expect(container.textContent).toContain("Synth1 • Bass");
@@ -154,7 +139,6 @@ it("generates into the focused destination, preserving other tracks and routing 
   expect(container.textContent).toContain("Visible notes (3)");
 
   await select("Focus", "synth2");
-  await select("Generator", "bass");
   await clickButton("Generate Bass");
   expect(container.textContent).toContain("Synth2 • Bass");
   expect(container.textContent).toContain("Midi1 • Chords");
@@ -176,31 +160,22 @@ it("generates into the focused destination, preserving other tracks and routing 
 
 it("communicates actions for logical roles while preserving their current defaults", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
-  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Bass action"]')?.value).toBe("vary");
-  expect(container.querySelector<HTMLButtonElement>('button[aria-label="Create Bass Variation on Synth1"]')?.textContent).toBe("Create Bass Variation");
-  expect(container.textContent).toContain("Choose a role, choose an outcome");
-  expect(container.textContent).toContain("keeping its musical intent");
-  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Chords action"]')?.value).toBe("rebuild");
-  expect(container.querySelector<HTMLButtonElement>('button[aria-label="Replace Chords on Synth2"]')?.textContent).toBe("Replace Chords");
-
-  await act(async () => {
-    const drumRole = container.querySelector<HTMLSelectElement>('select[aria-label="Drums role"]')!;
-    drumRole.value = "aux-percussion";
-    drumRole.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  expect(container.querySelector<HTMLSelectElement>('select[aria-label="Aux Percussion action"]')?.value).toBe("apply");
-  expect(container.querySelector<HTMLButtonElement>('button[aria-label="Use Aux Percussion Pattern on Drums"]')?.textContent)
-    .toBe("Use Aux Percussion Pattern");
+  expect(button("Create Bass Variation").textContent).toBe("✨");
+  expect(button("Replace Chords").textContent).toBe("↻");
+  expect(button("Use Drums Pattern").textContent).toBe("♪");
+  expect(container.querySelector('[aria-label="Bass action"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Chords action"]')).toBeNull();
 });
 
 it("requires confirmation before replacing existing track content", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
-  const replace = container.querySelector<HTMLButtonElement>('button[aria-label="Replace Chords on Synth2"]')!;
+  await select("Focus", "synth2");
+  const replace = button("Replace Chords");
   vi.mocked(api.combinedMidi).mockClear();
   await act(async () => replace.click());
   expect(api.combinedMidi).not.toHaveBeenCalled();
-  expect(replace.textContent).toBe("Confirm Replace Chords");
-  expect(container.textContent).toContain("This replaces the current notes");
+  expect(replace.getAttribute("aria-label")).toBe("Confirm Replace Chords");
+  expect(replace.getAttribute("title")).toContain("Confirm Replace with new content");
   await act(async () => replace.click());
   expect(api.combinedMidi).toHaveBeenCalledTimes(1);
 });
@@ -212,14 +187,11 @@ it("generates a pad only on the focused track and uses its MIDI route and export
   const original = JSON.stringify(pkg);
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
   await select("Focus", "drums");
-  expect(selectElement("Generator").querySelector('option[value="pad"]')).toBeNull();
   await select("Drum pattern", "four-on-the-floor");
   await act(async () => button("Apply Pattern").click());
   await select("Focus", "midi2");
-  await select("Generator", "pad");
   await clickButton("Generate Pad");
   expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.textContent).toContain("Midi1 • Lead");
@@ -227,8 +199,6 @@ it("generates a pad only on the focused track and uses its MIDI route and export
   expect(container.textContent).toContain("Synth2 • Chords");
   await select("Focus", "synth1");
   await select("Focus", "midi2");
-  expect(selectElement("Generator").value).toBe("pad");
-
   await act(async () => button("Download All Tracks MIDI (Circuit Tracks)").click());
   const [tracks, drums] = exportMidi.mock.calls[0];
   expect(tracks.synth1.notes).toEqual([bass]);
@@ -253,7 +223,6 @@ it("generates a pad only on the focused track and uses its MIDI route and export
 it("preserves the focused track if chord data cannot form a pad", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "synth1");
-  await select("Generator", "pad");
   await clickButton("Generate Pad");
   expect(container.textContent).toContain("Pad generation requires one sustained chord per bar.");
   expect(container.textContent).toContain("Synth1 • Bass");
@@ -265,7 +234,6 @@ it("auditions track checkboxes during playback without removing tracks from expo
   vi.spyOn(apiModule, "download").mockImplementation(() => {});
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
   await select("Focus", "drums");
   await select("Drum pattern", "four-on-the-floor");
@@ -276,8 +244,7 @@ it("auditions track checkboxes during playback without removing tracks from expo
   expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x92, 76, 88]);
   expect(output.send.mock.calls.some((call) => call[0][0] === 0x99)).toBe(true);
 
-  const checkbox = (name: string) => [...container.querySelectorAll("label")]
-    .find((label) => label.textContent?.trim() === name)!.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+  const checkbox = (name: string) => container.querySelector<HTMLInputElement>(`input[aria-label="Enable ${name}"]`)!;
   output.send.mockClear();
   await act(async () => checkbox("Midi1 • Lead").click());
   expect(container.textContent).not.toContain("E5 (76)");
@@ -297,36 +264,21 @@ it("auditions track checkboxes during playback without removing tracks from expo
   expect(exportMidi.mock.calls[0][1].length).toBeGreaterThan(0);
 });
 
-it("regenerates individual tracks from their rows without changing focus", async () => {
+it("applies role actions to the focused track", async () => {
   vi.mocked(api.combinedMidi).mockResolvedValue({ arrayBuffer: async () => triadMidi() } as Blob);
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
-  const midi1 = container.querySelector<HTMLSelectElement>('select[aria-label="Midi1 role"]')!;
-  const midi2 = container.querySelector<HTMLSelectElement>('select[aria-label="Midi2 role"]')!;
-  expect(selectElement("Focus").value).toBe("synth1");
-  expect(button("Regenerate Midi2").disabled).toBe(true);
-  await act(async () => {
-    midi1.value = "lead"; midi1.dispatchEvent(new Event("change", { bubbles: true }));
-    midi2.value = "pad"; midi2.dispatchEvent(new Event("change", { bubbles: true }));
-  });
-  expect(container.textContent).not.toContain("Midi2 • Pad");
-  await clickButton("Regenerate Midi2");
+  await select("Focus", "midi2");
+  await clickButton("Generate Pad");
   expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.textContent).toContain("Synth1 • Bass");
-  expect(container.textContent).not.toContain("Midi1 • Lead");
-  expect(midi1.value).toBe("lead");
-  await clickButton("Regenerate Midi1");
-  expect(container.textContent).toContain("Midi1 • Lead");
-  expect(selectElement("Focus").value).toBe("synth1");
-  expect(container.querySelector("canvas")!.compareDocumentPosition(container.querySelector(".roll-visibility")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.querySelector<HTMLButtonElement>('[aria-label="Focus Midi2 • Pad track"]')?.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("routes Midi1 and Midi2 independently, rejects collisions, and keeps profile format compatible", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");
-  await select("Generator", "chords");
   await clickButton("Generate Chords");
   await select("Focus", "midi2");
-  await select("Generator", "bass");
   await clickButton("Generate Bass");
 
   await act(async () => button("Refresh Devices").click());
@@ -357,9 +309,6 @@ it("routes Midi1 and Midi2 independently, rejects collisions, and keeps profile 
 it("applies the selected pattern only on action and preserves melodic tracks", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "drums");
-  expect(selectElement("Generator").value).toBe("drums");
-  expect(selectElement("Generator").querySelector('option[value="bass"]')).toBeNull();
-  expect(selectElement("Generator").querySelector('option[value="lead"]')).toBeNull();
   expect(button("Apply Pattern").disabled).toBe(true);
   await select("Drum pattern", "four-on-the-floor");
   expect(container.textContent).toContain("Visible notes (2)");
@@ -382,7 +331,6 @@ it("keeps the original target when focus changes while generation is running", a
   vi.mocked(api.replay).mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");
-  await select("Generator", "bass");
   await clickButton("Generate Bass");
   await select("Focus", "midi2");
   await act(async () => resolve({ ...pkg, notes: [generatedBass] }));
@@ -397,7 +345,6 @@ it("keeps the original melody target when focus changes during generation", asyn
   vi.mocked(api.melody).mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
   await select("Focus", "midi2");
   await act(async () => resolve([generatedMelody]));
@@ -410,7 +357,6 @@ it("keeps the original melody target when focus changes during generation", asyn
 it("rejects malformed melody responses without replacing the focused track", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "synth2");
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
   expect(container.textContent).toContain("Synth2 • Lead");
   expect(container.textContent).toContain("E5 (76)");
@@ -439,7 +385,6 @@ it("retains the destination and other tracks when generation fails", async () =>
   vi.mocked(api.replay).mockRejectedValueOnce(new Error("Generation failed."));
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "synth2");
-  await select("Generator", "bass");
   await clickButton("Generate Bass");
   expect(container.textContent).toContain("Generation failed.");
   expect(container.textContent).toContain("Synth2 • Chords");
@@ -450,7 +395,6 @@ it("generates deterministic melody content only on each focused melodic track", 
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   for (const track of ["synth1", "synth2", "midi1", "midi2"]) {
     await select("Focus", track);
-    await select("Generator", "melody");
     await clickButton("Generate Melody");
   }
 
@@ -491,7 +435,6 @@ it("repeats each track's melody seed without replacing the other track", async (
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   for (const track of ["midi1", "midi2", "midi1", "midi2"]) {
     await select("Focus", track);
-    await select("Generator", "melody");
     await clickButton("Generate Melody");
   }
   expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([1, 2, 1, 2]);
@@ -500,22 +443,17 @@ it("repeats each track's melody seed without replacing the other track", async (
   expect(rows.some((row) => row?.includes("Midi2 • Lead") && row.includes("F5 (77)"))).toBe(true);
 });
 
-it("keeps each row's pending role across focus changes and preserves content on failure", async () => {
+it("preserves focus and existing content when a focused track action fails", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
   await select("Focus", "midi1");
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
-  await select("Generator", "bass");
   await select("Focus", "midi2");
-  await select("Focus", "midi1");
-  expect(selectElement("Generator").value).toBe("bass");
-
-  await select("Generator", "melody");
   vi.mocked(api.melody).mockRejectedValueOnce(new Error("Melody generation failed."));
   await clickButton("Generate Melody");
   expect(container.textContent).toContain("Melody generation failed.");
   expect(container.textContent).toContain("Midi1 • Lead");
   expect(container.textContent).toContain("E5 (76)");
+  expect(container.querySelector<HTMLButtonElement>('[aria-label="Focus Midi2 track"]')?.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("keeps track generation disabled until initial chord loading completes", async () => {
@@ -528,7 +466,6 @@ it("keeps track generation disabled until initial chord loading completes", asyn
 
   await act(async () => resolveChords({ arrayBuffer: async () => midi() } as Blob));
   expect(button("Generate Melody").disabled).toBe(false);
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
   expect(container.textContent).toContain("Synth2 • Lead");
   expect(container.textContent).toContain("E5 (76)");
@@ -551,7 +488,6 @@ it("keeps track generation disabled while a failed chord load is retried", async
 
   await act(async () => resolveChords({ arrayBuffer: async () => midi() } as Blob));
   expect(button("Generate Melody").disabled).toBe(false);
-  await select("Generator", "melody");
   await clickButton("Generate Melody");
 
   expect(container.textContent).toContain("Synth2 • Lead");
