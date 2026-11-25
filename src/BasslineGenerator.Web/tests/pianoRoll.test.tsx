@@ -146,9 +146,12 @@ describe("piano roll", () => {
 
   it("preserves zoom, paging, note inspection, and selection", async () => {
     const visibility = container.querySelector(".roll-visibility")!;
+    const navigation = container.querySelector(".roll-nav")!;
     expect(visibility.querySelector("summary")?.textContent).toBe("Tracks & actions");
     expect(visibility.querySelector("legend")?.textContent).toBe("Track controls");
-    expect(visibility.querySelector(":scope > label")?.textContent).toContain("Bars shown");
+    const barsShown = [...navigation.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Bars shown"));
+    expect(barsShown?.querySelector("select")).not.toBeNull();
+    expect(visibility.querySelector("label")?.textContent).not.toContain("Bars shown");
     await act(async () => button("C2 (36)").click());
     expect(container.textContent).toContain("Selected: C2, beat 0, length 1, velocity 127.");
     await changeSelect("Bars shown", "4");
