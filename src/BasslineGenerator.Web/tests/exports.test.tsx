@@ -182,10 +182,11 @@ describe("MIDI export actions", () => {
     await setBassChannel(2);
     expect(summary.textContent).toBe(before);
     expect(container.textContent).toContain("Settings changed.");
-    expect(button("Regenerate Bass Package").form).toBe(container.querySelector("form"));
+    expect(button("Generate Bass Package").form).toBe(container.querySelector("form"));
     const creative = container.querySelector('[aria-label="Creative actions"]')!;
     expect(creative.contains(button("Generate Sketch"))).toBe(true);
-    expect(creative.contains(button("Regenerate Bass Package"))).toBe(true);
+    expect(creative.contains(button("Generate Bass Package"))).toBe(false);
+    expect(settings.parentElement?.contains(button("Generate Bass Package"))).toBe(true);
     expect(settings.contains(creative)).toBe(false);
   });
 

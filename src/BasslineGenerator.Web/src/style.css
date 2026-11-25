@@ -33,10 +33,16 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .download-options button { width: 100%; text-align: left; border: 0; background: transparent; }
 .download-options button:hover:not(:disabled) { background: #35445a; }
 .eyebrow { color: #76ddbc; font-size: .68rem; font-weight: 700; letter-spacing: .14em; margin-bottom: 6px; }
-.workspace { display: grid; grid-template-columns: minmax(290px, 360px) minmax(0, 1fr); gap: 20px; padding: 20px 32px 40px; align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px 32px 40px; align-items: start; }
 .card { background: #171f2d; border: 1px solid #2b384b; border-radius: 12px; padding: 22px; box-shadow: 0 8px 26px #0002; }
-.settings { position: sticky; top: 16px; max-height: calc(100cqh - 32px); overflow: auto; }
-.result { min-width: 0; display: grid; gap: 16px; }
+.settings { position: static; max-height: none; overflow: visible; order: 5; }
+.result { min-width: 0; display: contents; }
+.roll { order: 1; }
+.workspace .warning { order: 2; }
+.sound-settings { order: 3; }
+.package-overview { order: 4; }
+.workspace:not(.has-result) > .settings { order: 0; }
+.package-generate { margin-top: 16px; }
 .section-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .result-summary { color: #aab9ca; font-size: .85rem; padding-top: 12px; margin-top: 12px; border-top: 1px solid #2b384b; }
 .result-summary strong { color: #76ddbc; }

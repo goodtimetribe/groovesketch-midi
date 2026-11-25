@@ -201,6 +201,17 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
   const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible && track.notes.includes(selected.note));
   return <section className="roll card" aria-label="Note View">
     <div className="section-title"><div><p className="eyebrow">NOTE VIEW</p><h2>Piano roll</h2></div></div>
+    <div className="roll-canvas">
+      <canvas ref={canvas} aria-hidden="true" />
+      <div ref={playhead} className="playhead" aria-hidden="true" />
+    </div>
+    <div className="roll-nav">
+      <button type="button" onClick={() => setStartBar(Math.max(0, start - barsVisible))} disabled={start === 0}>Previous</button>
+      <label>Start bar <input type="number" min={1} max={maxStart + 1} value={start + 1}
+        onChange={(e) => setStartBar(Math.max(0, Math.min(maxStart, Number(e.target.value) - 1)))} /></label>
+      <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
+      <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
+    </div>
     <details className="roll-options" open>
     <summary>Arrangement &amp; focus</summary>
     <div className="arrangement-controls">
@@ -234,17 +245,6 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
       <label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
         {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}
       </select></label>
-    </div>
-    <div className="roll-canvas">
-      <canvas ref={canvas} aria-hidden="true" />
-      <div ref={playhead} className="playhead" aria-hidden="true" />
-    </div>
-    <div className="roll-nav">
-      <button type="button" onClick={() => setStartBar(Math.max(0, start - barsVisible))} disabled={start === 0}>Previous</button>
-      <label>Start bar <input type="number" min={1} max={maxStart + 1} value={start + 1}
-        onChange={(e) => setStartBar(Math.max(0, Math.min(maxStart, Number(e.target.value) - 1)))} /></label>
-      <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
-      <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
     </div>
     <p className="hint">Notes are read-only. Unfocused tracks are ghosted; brighter notes have higher velocity. Track checkboxes control visibility and playback, not export. The preview instrument may sound different from your DAW.</p>
     <details><summary>Visible notes ({visibleNotes.length})</summary>

@@ -317,7 +317,7 @@ it("regenerates individual tracks from their rows without changing focus", async
   await clickButton("Regenerate Midi1");
   expect(container.textContent).toContain("Midi1 • Lead");
   expect(selectElement("Focus").value).toBe("synth1");
-  expect(container.querySelector(".roll-visibility")!.compareDocumentPosition(container.querySelector("canvas")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.querySelector("canvas")!.compareDocumentPosition(container.querySelector(".roll-visibility")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 it("routes Midi1 and Midi2 independently, rejects collisions, and keeps profile format compatible", async () => {
