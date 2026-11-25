@@ -135,10 +135,11 @@ summary { cursor: pointer; font-weight: 700; }
 .roll-track-selector { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 .roll-nav .roll-track-toggle { display: inline-flex; gap: 4px; }
 .roll-nav .roll-track-toggle input { width: auto; margin: 0; }
+.quick-role-actions .roll-track-toggle input { accent-color: var(--role-color); }
 .roll-track-focus { padding: 3px 6px; font-size: .75rem; }
 .quick-role-actions { display: inline-flex; align-items: center; gap: 4px; padding-left: 8px; border-left: 2px solid var(--role-color); white-space: nowrap; }
 .quick-role-actions.is-focused { box-shadow: 0 0 0 1px var(--role-color); border-radius: 6px; }
-.quick-role-label { color: var(--role-color); font-size: .75rem; font-weight: 700; padding: 3px 4px; }
+.quick-role-label { color: var(--role-color); font-size: .75rem; font-weight: 700; padding: 3px 4px; border: 0; background: transparent; }
 .quick-role-actions.is-focused .quick-role-label { color: #101520; background: var(--role-color); border-radius: 4px; }
 .roll-nav .quick-action { min-width: 30px; padding: 3px 7px; border-color: var(--role-color); }
 .note-list { max-height: 260px; overflow: auto; }

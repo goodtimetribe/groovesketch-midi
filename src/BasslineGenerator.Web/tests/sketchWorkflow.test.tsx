@@ -46,9 +46,6 @@ function midi(bars: number, pitches = [60, 64, 67]) {
 let container: HTMLDivElement;
 let root: Root;
 
-const hardwareName = (track: string) => track === "synth1" ? "Synth1" : track === "synth2" ? "Synth2"
-  : track === "midi1" ? "Midi1" : track === "midi2" ? "Midi2" : "Drums";
-
 function button(name: string) {
   if (name === "Apply Pattern") name = "Use Drums Pattern";
   else if (name === "Generate Bass") name = "Create Bass Variation";
@@ -76,10 +73,8 @@ function selectElement(label: string): HTMLSelectElement {
 
 async function select(label: string, value: string) {
   if (label === "Focus") {
-    const name = hardwareName(value);
-    const focus = [...container.querySelectorAll<HTMLButtonElement>(".roll-track-focus")]
-      .find((item) => item.textContent?.startsWith(name));
-    if (!focus) throw new Error(`Missing track focus: ${name}`);
+    const focus = container.querySelector<HTMLButtonElement>(`.roll-track-focus[data-track-id="${value}"]`);
+    if (!focus) throw new Error(`Missing track focus: ${value}`);
     await act(async () => focus.click());
     return;
   }
@@ -365,7 +360,7 @@ it("uses the selected pattern and generates every track using the same settings 
   expect(container.textContent).toContain("Midi1 • Lead");
   expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.querySelector('[aria-label="Bass action"]')).toBeNull();
-  expect(container.querySelector('[aria-label="Focus Synth1 • Bass track"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Focus Bass track"]')).not.toBeNull();
   expect(container.textContent).toContain("Applied pattern: Four on the floor");
   expect(drums.contains(button("Clear Drums"))).toBe(true);
   expect(container.querySelector("nav")!.contains(button("Download Circuit Tracks Drum MIDI"))).toBe(true);
@@ -461,7 +456,7 @@ it("replaces edited tracks and reproduces the sketch from its seed", async () =>
   expect(container.textContent).toContain("Applied pattern: Four on the floor");
   expect(container.textContent).not.toContain("Midi2 • Chords");
   expect(container.textContent).toContain("Midi2 • Pad");
-  expect(container.querySelector('[aria-label="Focus Synth2 • Chords track"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Focus Chords track"]')).not.toBeNull();
   expect(visibleNotes()).toEqual(originalNotes);
   expect(vi.mocked(api.replay)).toHaveBeenCalledWith(expect.objectContaining({ seed: 123 }));
   expect(vi.mocked(api.melody).mock.calls.map(([request]) => request.seed)).toEqual([123, 122, 123]);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { PlaybackState, PlaybackTransport } from "./playback";
-import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent } from "./trackView";
+import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "./trackView";
 import { hardwareTracks, melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
 import { actionDescriptionForRole, actionLabel, actionsForRole, roleLabel, actionButtonLabel,
   type ActionableRole, type TrackAction } from "./trackActions";
@@ -106,22 +106,46 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     .filter((n) => n.startBeat + n.durationBeats > start * 4 && n.startBeat < (start + barsVisible) * 4)
     .map((note) => ({ track, note })));
   const selectedVisible = selected && tracks.some((track) => track.id === selected.trackId && track.visible && track.notes.includes(selected.note));
+  const melodicRoles = ["bass", "chords", "lead", "pad"] as const;
+  const defaultTrackByRole: Record<typeof melodicRoles[number], MelodicTrackId> = {
+    bass: "synth1", chords: "synth2", lead: "midi1", pad: "midi2",
+  };
   const quickTrackForRole = (role: Exclude<ActionableRole, "drums" | "aux-percussion">): MelodicTrackId => {
     const assigned = melodicTrackIds.find((id) => workflow?.content[id].role === role);
-    const defaultTrack: Record<typeof role, MelodicTrackId> = {
-      bass: "synth1", chords: "synth2", lead: "midi1", pad: "midi2",
-    };
-    return assigned ?? defaultTrack[role];
+    return assigned ?? defaultTrackByRole[role];
   };
-  const quickRoles: { role: ActionableRole; actions: readonly TrackAction[]; color: string }[] = workflow ? [
-    ...(["bass", "chords", "lead", "pad"] as const).map((role) => {
-      const track = quickTrackForRole(role);
-      return { role, actions: actionsForRole[role], color: `rgb(${hardwareTracks[track].color.join(", ")})` };
+  const quickTrackAssignments = (() => {
+    const assignments: Partial<Record<typeof melodicRoles[number], MelodicTrackId>> = {};
+    const used = new Set<MelodicTrackId>();
+    for (const role of melodicRoles) {
+      const assigned = melodicTrackIds.find((id) => workflow?.content[id].role === role);
+      if (assigned && !used.has(assigned)) {
+        assignments[role] = assigned;
+        used.add(assigned);
+      }
+    }
+    for (const role of melodicRoles) {
+      if (assignments[role]) continue;
+      const preferred = defaultTrackByRole[role];
+      const track = used.has(preferred) ? melodicTrackIds.find((id) => !used.has(id))! : preferred;
+      assignments[role] = track;
+      used.add(track);
+    }
+    return assignments as Record<typeof melodicRoles[number], MelodicTrackId>;
+  })();
+  const quickRoles: { role: ActionableRole; actions: readonly TrackAction[]; color: string;
+    track: TrackViewModel; focusTrack: FocusTrack }[] = workflow ? [
+    ...melodicRoles.map((role) => {
+      const focusTrack = quickTrackAssignments[role];
+      const track = tracks.find((item) => item.id === focusTrack)!;
+      return { role, actions: actionsForRole[role], color: `rgb(${hardwareTracks[focusTrack].color.join(", ")})`, track, focusTrack };
     }),
-    { role: "drums", actions: actionsForRole.drums, color: `rgb(${hardwareTracks.drum1.color.join(", ")})` },
+    { role: "drums", actions: actionsForRole.drums, color: `rgb(${hardwareTracks.drum1.color.join(", ")})`,
+      track: tracks.find((item) => item.id === "drums")!, focusTrack: "drums" },
     ...(drumNotes?.some((note) => ![36, 38, 42].includes(note.midiNote)) ? [{
       role: "aux-percussion" as const, actions: actionsForRole["aux-percussion"],
       color: `rgb(${hardwareTracks.drum4.color.join(", ")})`,
+      track: tracks.find((item) => item.id === "drums")!, focusTrack: "drums" as const,
     }] : []),
   ] : [];
   const focusedRole = focus === "drums" ? "drums" : workflow?.content[focus as MelodicTrackId]?.role;
@@ -151,24 +175,21 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
       <label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
         {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}
       </select></label>
-      <div className="roll-track-selectors" role="group" aria-label="Track selection and mute">
-        {tracks.map((track) => <div className="roll-track-selector" key={track.id}>
-          <label className="roll-track-toggle" title={`Toggle ${track.name} playback`}>
+      <div className="roll-track-selectors" role="group" aria-label={workflow ? "Role visibility and actions" : "Track selection and mute"}>
+        {workflow ? quickRoles.map(({ role, actions, color, track, focusTrack }) => <div
+          className={`quick-role-actions${focusedRole === role ? " is-focused" : ""}`} key={role}
+          style={{ "--role-color": color } as CSSProperties}>
+          {role !== "aux-percussion" && <label className="roll-track-toggle" title={`Toggle ${track.name} playback`}>
             <input type="checkbox" aria-label={`Enable ${track.name}`} checked={track.visible} onChange={(event) => {
               const enabled = event.target.checked;
               transport.setTrackEnabled(track.kind === "drumGroup" ? "drums" : track.hardwareTrackId, enabled);
               setVisibility((old) => ({ ...old, [track.id]: enabled }));
             }} />
-            <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" />
-          </label>
-          <button type="button" className="roll-track-focus" aria-label={`Focus ${track.name} track`}
-            aria-pressed={focus === track.id} onClick={() => setFocus(track.id)}>{track.name}</button>
-        </div>)}
-      </div>
-      {quickRoles.map(({ role, actions, color }) => <div
-        className={`quick-role-actions${focusedRole === role ? " is-focused" : ""}`} key={role}
-        style={{ "--role-color": color } as CSSProperties}>
-        <span className="quick-role-label">{roleLabel[role]}</span>
+          </label>}
+          {role === "aux-percussion" ? <span className="quick-role-label">{roleLabel[role]}</span> :
+            <button type="button" className="quick-role-label roll-track-focus" aria-label={`Focus ${roleLabel[role]} track`}
+              data-track-id={track.id} aria-pressed={focus === focusTrack}
+              onClick={() => setFocus(focusTrack)}>{roleLabel[role]}</button>}
         {actions.map((action) => {
           const key = `${focus}:${role}:${action}`;
           const confirming = quickConfirmation === key;
@@ -181,7 +202,20 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
             {confirming ? "✓" : icon}
           </button>;
         })}
-      </div>)}
+        </div>) : tracks.map((track) => <div className="roll-track-selector" key={track.id}>
+          <label className="roll-track-toggle" title={`Toggle ${track.name} playback`}>
+            <input type="checkbox" aria-label={`Enable ${track.name}`} checked={track.visible} onChange={(event) => {
+              const enabled = event.target.checked;
+              transport.setTrackEnabled(track.kind === "drumGroup" ? "drums" : track.hardwareTrackId, enabled);
+              setVisibility((old) => ({ ...old, [track.id]: enabled }));
+            }} />
+            <span className="track-indicator" style={{ background: track.indicator }} aria-hidden="true" />
+          </label>
+          <button type="button" className="roll-track-focus" aria-label={`Focus ${track.name} track`}
+            data-track-id={track.id} aria-pressed={focus === track.id}
+            onClick={() => setFocus(track.id)}>{track.name}</button>
+        </div>)}
+      </div>
     </div>
     <details className="roll-options">
     <summary>Arrangement</summary>

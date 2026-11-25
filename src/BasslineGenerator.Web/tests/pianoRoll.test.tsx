@@ -229,12 +229,21 @@ describe("piano roll", () => {
 
     const quickActions = container.querySelector(".roll-nav")!;
     expect(quickActions.querySelectorAll(".quick-role-actions")).toHaveLength(6);
-    const focusLead = container.querySelector<HTMLButtonElement>('[aria-label="Focus Midi2 • Lead track"]')!;
+    expect(quickActions.querySelectorAll(".roll-track-selector")).toHaveLength(0);
+    expect(quickActions.querySelectorAll('.quick-role-actions input[type="checkbox"]')).toHaveLength(5);
+    expect(quickActions.querySelectorAll('[aria-label="Enable Synth1 • Bass"]')).toHaveLength(1);
+    expect(quickActions.querySelector('[aria-label="Enable Synth1 • Bass"]')?.closest(".quick-role-actions")
+      ?.querySelector(".quick-role-label")?.textContent).toBe("Bass");
+    const enabled = vi.spyOn(transport, "setTrackEnabled");
+    await act(async () => checkbox("Synth1 • Bass").click());
+    expect(enabled).toHaveBeenLastCalledWith("synth1", false);
+    expect(checkbox("Synth1 • Bass").checked).toBe(false);
+    const focusLead = container.querySelector<HTMLButtonElement>('[aria-label="Focus Lead track"]')!;
     expect(focusLead.getAttribute("aria-pressed")).toBe("false");
     await act(async () => focusLead.click());
     expect(focusLead.getAttribute("aria-pressed")).toBe("true");
     expect(quickActions.querySelector(".quick-role-actions.is-focused .quick-role-label")?.textContent).toBe("Lead");
-    expect(focusLead.textContent).toBe("Midi2 • Lead");
+    expect(focusLead.textContent).toBe("Lead");
     expect(quickActions.querySelector('[aria-label="Replace Bass"]')?.textContent).toBe("↻");
     expect(quickActions.querySelector('[aria-label="Create Bass Variation"]')?.textContent).toBe("✨");
     expect(quickActions.querySelector('[aria-label="Use Drums Pattern"]')?.textContent).toBe("♪");
