@@ -140,6 +140,9 @@ summary { cursor: pointer; font-weight: 700; }
 .roll-nav label { flex-direction: row; align-items: center; margin: 0; }
 .roll-nav input { width: 75px; }
 .roll-nav span { color: #aab9ca; }
+.quick-role-actions { display: inline-flex; align-items: center; gap: 4px; padding-left: 8px; border-left: 2px solid var(--role-color); white-space: nowrap; }
+.quick-role-name { color: var(--role-color); font-size: .75rem; font-weight: 700; }
+.roll-nav .quick-action { min-width: 30px; padding: 3px 7px; border-color: var(--role-color); }
 .note-list { max-height: 260px; overflow: auto; }
 table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; }
 td, th { padding: 8px; border-bottom: 1px solid #34445a; }

@@ -205,4 +205,44 @@ describe("piano roll", () => {
     expect(container.textContent).not.toContain("D2 (38)");
   });
 
+  it("offers compact role shortcuts beside navigation and dispatches the selected actions", async () => {
+    const generate = vi.fn();
+    const workflow = {
+      content: {
+        synth1: { role: "bass" as const, notes: [bass] },
+        synth2: { role: "chords" as const, notes: [chord] },
+        midi1: { role: "pad" as const, notes: [] },
+        midi2: { role: "lead" as const, notes: [] },
+      },
+      busy: false, disabled: false, patternSelected: true, generate,
+    };
+    const drum = { note: "D2", midiNote: 38, startBeat: 0, durationBeats: 0.25, velocity: 100 };
+    const aux = { note: "A#2", midiNote: 46, startBeat: 0, durationBeats: 0.25, velocity: 100 };
+    await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped"
+      chordNotes={[chord]} drumNotes={[drum, aux]} workflow={workflow} />));
+
+    const quickActions = container.querySelector(".roll-nav")!;
+    expect(quickActions.querySelectorAll(".quick-role-actions")).toHaveLength(6);
+    expect(quickActions.querySelector('[aria-label="Replace Bass"]')?.textContent).toBe("↻");
+    expect(quickActions.querySelector('[aria-label="Create Bass Variation"]')?.textContent).toBe("✨");
+    expect(quickActions.querySelector('[aria-label="Use Drums Pattern"]')?.textContent).toBe("♪");
+    expect(quickActions.querySelector('[aria-label="Use Aux Percussion Pattern"]')).not.toBeNull();
+    expect(quickActions.querySelector('[aria-label="Replace Lead"]')?.getAttribute("title")).toContain("new content");
+
+    const replaceLead = quickActions.querySelector<HTMLButtonElement>('[aria-label="Replace Lead"]')!;
+    await act(async () => replaceLead.click());
+    expect(generate).not.toHaveBeenCalled();
+    await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Confirm Replace Lead"]')!.click());
+    expect(generate).toHaveBeenLastCalledWith("midi2", "lead", "rebuild");
+    await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Create Bass Variation"]')!.click());
+    expect(generate).toHaveBeenLastCalledWith("synth1", "bass", "vary");
+    await act(async () => quickActions.querySelector<HTMLButtonElement>('[aria-label="Use Aux Percussion Pattern"]')!.click());
+    expect(generate).toHaveBeenLastCalledWith("drums", "aux-percussion", "apply");
+
+    await act(async () => root.render(<PianoRoll pkg={pkg} transport={transport} playbackState="stopped"
+      chordNotes={[chord]} drumNotes={[drum]} workflow={{ ...workflow, patternSelected: false }} />));
+    expect(container.querySelector('[aria-label="Use Aux Percussion Pattern"]')).toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Use Drums Pattern"]')?.disabled).toBe(true);
+  });
+
 });
