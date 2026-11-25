@@ -239,8 +239,12 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
         onChange={(e) => setStartBar(Math.max(0, Math.min(maxStart, Number(e.target.value) - 1)))} /></label>
       <span>Bars {start + 1}–{Math.min(totalBars, start + barsVisible)} of {totalBars}</span>
       <button type="button" onClick={() => setStartBar(Math.min(maxStart, start + barsVisible))} disabled={start >= maxStart}>Next</button>
-      {quickRoles.map(({ role, track, actions, color }) => <div className="quick-role-actions" key={role} style={{ "--role-color": color } as CSSProperties}>
-        <span className="quick-role-name" title={roleLabel[role]}>{roleLabel[role]}</span>
+      {quickRoles.map(({ role, track, actions, color }) => <div
+        className={`quick-role-actions${focus === track ? " is-focused" : ""}`} key={role}
+        style={{ "--role-color": color } as CSSProperties}>
+        <button className="quick-role-name" type="button" aria-label={`Focus ${roleLabel[role]} track`}
+          aria-pressed={focus === track} title={`Focus ${roleLabel[role]} track`}
+          onClick={() => setFocus(track)}>{roleLabel[role]}</button>
         {actions.map((action) => {
           const key = `${track}:${role}:${action}`;
           const confirming = quickConfirmation === key;
@@ -255,7 +259,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
         })}
       </div>)}
     </div>
-    <details className="roll-options" open>
+    <details className="roll-options">
     <summary>Arrangement &amp; focus</summary>
     <div className="arrangement-controls">
       <div className="section-selection">
@@ -277,7 +281,9 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
     </div>
     </details>
     <div className="track-controls roll-visibility">
-      <fieldset><legend>Tracks &amp; actions</legend>
+      <details className="track-actions-options">
+        <summary>Tracks &amp; actions</summary>
+      <fieldset><legend>Track controls</legend>
         <p className="hint track-actions-guide">Choose a role, choose an outcome, then apply it to that track. Other tracks stay unchanged.</p>
         {tracks.map((track) => <TrackRow key={track.id} track={track} pkg={pkg} workflow={workflow}
           onVisibility={(enabled) => {
@@ -285,6 +291,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
             setVisibility((old) => ({ ...old, [track.id]: enabled }));
           }} />)}
       </fieldset>
+      </details>
       <label>Bars shown <select value={barsVisible} onChange={(e) => setBarsVisible(Number(e.target.value))}>
         {[4, 8, 16, 32, 64].map((n) => <option key={n}>{n}</option>)}
       </select></label>
