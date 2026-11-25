@@ -51,9 +51,6 @@ let container: HTMLDivElement;
 let root: Root;
 let output: { id: string; name: string; state: string; send: ReturnType<typeof vi.fn>; clear: ReturnType<typeof vi.fn> };
 
-const hardwareName = (track: string) => track === "synth1" ? "Synth1" : track === "synth2" ? "Synth2"
-  : track === "midi1" ? "Midi1" : track === "midi2" ? "Midi2" : "Drums";
-
 function button(name: string) {
   if (name === "Apply Pattern") name = "Use Drums Pattern";
   else if (name === "Generate Bass") name = "Create Bass Variation";
@@ -81,10 +78,8 @@ function selectElement(label: string): HTMLSelectElement {
 
 async function select(label: string, value: string) {
   if (label === "Focus") {
-    const name = hardwareName(value);
-    const focus = [...container.querySelectorAll<HTMLButtonElement>(".roll-track-focus")]
-      .find((item) => item.textContent?.startsWith(name));
-    if (!focus) throw new Error(`Missing track focus: ${name}`);
+    const focus = container.querySelector<HTMLButtonElement>(`.roll-track-focus[data-track-id="${value}"]`);
+    if (!focus) throw new Error(`Missing track focus: ${value}`);
     await act(async () => focus.click());
     return;
   }
@@ -271,7 +266,7 @@ it("applies role actions to the focused track", async () => {
   await clickButton("Generate Pad");
   expect(container.textContent).toContain("Midi2 • Pad");
   expect(container.textContent).toContain("Synth1 • Bass");
-  expect(container.querySelector<HTMLButtonElement>('[aria-label="Focus Midi2 • Pad track"]')?.getAttribute("aria-pressed")).toBe("true");
+  expect(container.querySelector<HTMLButtonElement>('[aria-label="Focus Pad track"]')?.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("routes Midi1 and Midi2 independently, rejects collisions, and keeps profile format compatible", async () => {
@@ -453,7 +448,7 @@ it("preserves focus and existing content when a focused track action fails", asy
   expect(container.textContent).toContain("Melody generation failed.");
   expect(container.textContent).toContain("Midi1 • Lead");
   expect(container.textContent).toContain("E5 (76)");
-  expect(container.querySelector<HTMLButtonElement>('[aria-label="Focus Midi2 track"]')?.getAttribute("aria-pressed")).toBe("true");
+  expect(container.querySelector<HTMLButtonElement>('[aria-label="Focus Pad track"]')?.getAttribute("aria-pressed")).toBe("true");
 });
 
 it("keeps track generation disabled until initial chord loading completes", async () => {
