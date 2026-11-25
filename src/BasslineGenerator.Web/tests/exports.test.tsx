@@ -163,8 +163,11 @@ describe("MIDI export actions", () => {
   it("groups document actions and shows the generated summary in the playback sidebar", async () => {
     const nav = container.querySelector("nav")!;
     expect([...nav.querySelectorAll("button")].map((item) => item.textContent)).toEqual([
-      "Save package", "Share", "Download Bass + Chords MIDI", "▾", "Download Bass MIDI", "Download All Tracks MIDI (Circuit Tracks)", "Download Circuit Tracks Drum MIDI", "Load package", "Load code",
+      "Generate Sketch", "Save package", "Share", "Download Bass + Chords MIDI", "▾", "Download Bass MIDI", "Download All Tracks MIDI (Circuit Tracks)", "Download Circuit Tracks Drum MIDI", "Load package", "Load code",
     ]);
+    expect(nav.querySelectorAll(".primary")).toHaveLength(1);
+    expect(nav.querySelector(".primary")?.textContent).toBe("Generate Sketch");
+    expect(container.querySelector("h1")?.textContent).toBe("GrooveSketch MIDI");
     expect(button("Save package").disabled).toBe(true);
     await generate();
     expect(button("Save package").disabled).toBe(false);
@@ -183,11 +186,12 @@ describe("MIDI export actions", () => {
     expect(summary.textContent).toBe(before);
     expect(container.textContent).toContain("Settings changed.");
     expect(button("Generate Bass Package").form).toBe(container.querySelector("form"));
-    const creative = container.querySelector('[aria-label="Creative actions"]')!;
-    expect(creative.contains(button("Generate Sketch"))).toBe(true);
-    expect(creative.contains(button("Generate Bass Package"))).toBe(false);
+    const toolbar = container.querySelector('[aria-label="Workspace actions"]')!;
+    expect(toolbar.contains(button("Generate Sketch"))).toBe(true);
+    expect(toolbar.contains(button("Generate Bass Package"))).toBe(false);
     expect(settings.parentElement?.contains(button("Generate Bass Package"))).toBe(true);
-    expect(settings.contains(creative)).toBe(false);
+    expect(settings.contains(toolbar)).toBe(false);
+    expect(container.querySelector(".creative-bar")).toBeNull();
   });
 
   it("opens and dismisses the extra download options", async () => {

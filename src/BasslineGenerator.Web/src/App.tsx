@@ -296,13 +296,19 @@ export default function App() {
     : "Random for scale");
   return <div className="app">
     <div className="app-content">
-    <header className="topbar"><div><p className="eyebrow">GOOD TIME TRIBE</p><h1>Bassline Generator</h1></div>
-      <nav aria-label="Package actions">
+    <header className="topbar"><div><p className="eyebrow">GOOD TIME TRIBE</p><h1>GrooveSketch MIDI</h1></div>
+      <nav aria-label="Workspace actions">
+        <div className="sketch-action" role="group" aria-label="Sketch creation">
+          <button type="button" className="primary generate" disabled={!!busy || !catalogs || trackBusy || !patternId} onClick={generateSketch}>Generate Sketch</button>
+          <span className="sketch-settings-status" role="status" aria-live="polite">
+            {sketchSettingsChanged && <><span aria-hidden="true">●</span> Settings Changed</>}
+          </span>
+        </div>
         <button type="button" disabled={!result || !!busy} onClick={save}>Save package</button>
         <button type="button" disabled={!result || !!busy} onClick={share}>Share</button>
         <div className="download-split" ref={downloads}>
-          <button type="button" className="primary" disabled={!result || !!busy} onClick={() => { setDownloadsOpen(false); renderMidi(true); }}>Download Bass + Chords MIDI</button>
-          <button type="button" className="primary download-toggle" ref={downloadsToggle} aria-label="More MIDI downloads"
+          <button type="button" disabled={!result || !!busy} onClick={() => { setDownloadsOpen(false); renderMidi(true); }}>Download Bass + Chords MIDI</button>
+          <button type="button" className="download-toggle" ref={downloadsToggle} aria-label="More MIDI downloads"
             aria-expanded={downloadsOpen} aria-controls="download-options" onClick={() => setDownloadsOpen((open) => !open)}>
             <span aria-hidden="true">▾</span>
           </button>
@@ -317,12 +323,6 @@ export default function App() {
         <button type="button" disabled={!!busy} onClick={() => setLoadOpen(true)}>Load code</button>
       </nav>
     </header>
-    <div className="creative-bar" role="group" aria-label="Creative actions">
-      <button type="button" className="primary" disabled={!!busy || !catalogs || trackBusy || !patternId} onClick={generateSketch}>Generate Sketch</button>
-      <span className="sketch-settings-status" role="status" aria-live="polite">
-        {sketchSettingsChanged && <><span aria-hidden="true">●</span> Settings Changed</>}
-      </span>
-    </div>
     <div className="announcements" aria-live="polite">
       {busy && <p className="notice">{busy}…</p>}
       {status && <p className="notice">{status}</p>}

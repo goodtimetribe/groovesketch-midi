@@ -210,8 +210,8 @@ it("requires a pattern if the default is cleared", async () => {
 
 it("shows and clears sketch settings changes beside Generate Sketch without regenerating", async () => {
   const status = container.querySelector<HTMLElement>(".sketch-settings-status")!;
-  const creative = container.querySelector('[aria-label="Creative actions"]')!;
-  expect(creative.contains(status)).toBe(true);
+  const sketchAction = container.querySelector('[aria-label="Sketch creation"]')!;
+  expect(sketchAction.contains(status)).toBe(true);
   expect(status.textContent).toBe("");
   await number("Seed", 123);
   await number("Bars", 1);
@@ -532,10 +532,10 @@ it("keeps creative controls available with Settings and piano-roll options colla
   await select("Focus", "midi2");
   await act(async () => settings.querySelector("summary")!.click());
   await act(async () => roll.querySelector("summary")!.click());
-  const creative = container.querySelector('[aria-label="Creative actions"]')!;
+  const sketchAction = container.querySelector('[aria-label="Sketch creation"]')!;
   expect(settings.open).toBe(false);
   expect(roll.open).toBe(false);
-  expect(creative.contains(selectElement("Generator"))).toBe(false);
+  expect(sketchAction.contains(selectElement("Generator"))).toBe(false);
   expect(selectElement("Generator").closest(".roll-visibility")).not.toBeNull();
   await select("Generator", "melody");
   await clickTrackButton("Generate Melody");

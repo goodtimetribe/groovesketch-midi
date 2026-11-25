@@ -20,10 +20,9 @@ p { line-height: 1.55; }
 fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .app { max-width: 1800px; height: 100vh; height: 100dvh; margin: auto; display: flex; flex-direction: column; }
 .app-content { flex: 1 1 0; min-height: 0; overflow-y: auto; container-type: size; }
-.topbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 32px; border-bottom: 1px solid #283345; gap: 20px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; border-bottom: 1px solid #283345; gap: 20px; }
 .topbar nav, .actions, .inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.creative-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.creative-bar { padding: 10px 32px; border-bottom: 1px solid #283345; }
+.sketch-action { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .sketch-settings-status { color: #ffdfa3; font-size: .85rem; font-weight: 600; }
 .sketch-settings-status:empty { display: none; }
 .download-split { position: relative; display: inline-flex; }
@@ -33,8 +32,8 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .download-options button { width: 100%; text-align: left; border: 0; background: transparent; }
 .download-options button:hover:not(:disabled) { background: #35445a; }
 .eyebrow { color: #76ddbc; font-size: .68rem; font-weight: 700; letter-spacing: .14em; margin-bottom: 6px; }
-.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 20px 32px 40px; align-items: start; }
-.card { background: #171f2d; border: 1px solid #2b384b; border-radius: 12px; padding: 22px; box-shadow: 0 8px 26px #0002; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 14px 24px 24px; align-items: start; }
+.card { background: #171f2d; border: 1px solid #2b384b; border-radius: 12px; padding: 18px; box-shadow: 0 8px 26px #0002; }
 .settings { position: static; max-height: none; overflow: visible; order: 5; }
 .result { min-width: 0; display: contents; }
 .roll { order: 1; }
@@ -154,8 +153,7 @@ td, th { padding: 8px; border-bottom: 1px solid #34445a; }
 .dialog p { margin: 12px 0; }
 .dialog > button { margin-top: 18px; }
 @media (max-width: 800px) {
-  .topbar { padding: 16px; align-items: flex-start; }
-  .creative-bar { padding: 10px 16px; }
+  .topbar { padding: 12px 16px; align-items: flex-start; }
   .workspace { grid-template-columns: 1fr; padding: 16px; }
   .settings { position: static; max-height: none; }
   .announcements { padding: 0 16px; }
