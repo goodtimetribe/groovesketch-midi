@@ -140,6 +140,9 @@ it("generates and plays a complete sketch immediately on first load", async () =
   const exportMidi = vi.spyOn(allTracksMidi, "createAllTracksMidi");
   vi.spyOn(apiModule, "download").mockImplementation(() => {});
   expect(selectElement("Drum pattern").value).toBe("four-on-the-floor");
+  const dock = container.querySelector<HTMLElement>(".dock-region")!;
+  expect(dock.hidden).toBe(true);
+  expect(container.querySelector("aside")?.textContent).toContain("Generate a sketch, then press Play");
   expect(button("Generate Sketch").disabled).toBe(false);
   const rootNote = selectElement("Root note").value;
   const scaleType = selectElement("Scale").value;
@@ -147,6 +150,10 @@ it("generates and plays a complete sketch immediately on first load", async () =
   const progression = selectElement("Progression").value;
   const seed = Number([...container.querySelectorAll("label")].find((item) => item.textContent?.startsWith("Seed"))!.querySelector("input")!.value);
   await act(async () => button("Generate Sketch").click());
+  expect(dock.hidden).toBe(false);
+  expect(dock.contains(container.querySelector('[aria-label="Playback controls"]'))).toBe(true);
+  expect(container.querySelector(".app-content")?.contains(dock)).toBe(false);
+  expect(container.querySelector("aside")?.contains(container.querySelector('[aria-label="Master volume"]'))).toBe(true);
   expect(vi.mocked(api.generate)).toHaveBeenCalledWith(expect.objectContaining({ rootNote, scaleType, style, progression, seed }));
   expect(vi.mocked(api.melody).mock.calls[0][0]).not.toHaveProperty("style");
   const latestLoad = load.mock.calls.at(-1)!;

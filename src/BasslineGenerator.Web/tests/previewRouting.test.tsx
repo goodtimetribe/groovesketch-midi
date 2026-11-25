@@ -270,26 +270,42 @@ it("shows and switches the selected profile without expanding hardware routing",
   expect(container.querySelector<HTMLInputElement>('.routing-profiles input')?.value).toBe("Circuit Tracks Synth 1");
 });
 
-it("places working playback controls in the supplied sidebar", async () => {
+it("places transport in its dock and playback settings in the supplied sidebar", async () => {
   const sidebar = document.createElement("aside");
+  const dock = document.createElement("div");
   document.body.appendChild(sidebar);
+  document.body.appendChild(dock);
   try {
-    await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} />));
+    await act(async () => root.render(<Preview pkg={pkg} disabled={false} playbackPane={sidebar} transportPane={dock} />));
     const refresh = [...sidebar.querySelectorAll("button")].find((item) => item.textContent === "Refresh Devices")!;
-    const transport = sidebar.querySelector('[aria-label="Playback controls"]');
+    const transport = dock.querySelector('[aria-label="Playback controls"]');
     expect(transport?.classList.contains("transport-dock")).toBe(true);
     expect([...transport!.querySelectorAll("button")].map((item) => item.textContent)).toEqual([
       "Play", "Pause", "Stop", "Restart", "Loop Enabled",
     ]);
     expect(transport!.querySelector('[role="status"]')?.textContent).toBe("Stopped");
     expect(transport!.contains(sidebar.querySelector('[aria-label="Master volume"]'))).toBe(false);
+    expect(sidebar.querySelector('[aria-label="Playback controls"]')).toBeNull();
     expect(container.querySelector('[aria-label="Playback controls"]')).toBeNull();
+    const loop = [...transport!.querySelectorAll("button")].find((item) => item.textContent === "Loop Enabled")!;
+    expect(loop.getAttribute("aria-label")).toBe("Loop Enabled");
+    await act(async () => loop.click());
+    expect(loop.getAttribute("aria-pressed")).toBe("false");
+    expect(loop.getAttribute("aria-label")).toBe("Loop");
+    expect(loop.textContent).toBe("Loop");
     await act(async () => refresh.click());
     expect(sidebar.textContent).toContain("Circuit Tracks");
     expect(container.querySelector('[data-testid="chord-count"]')).not.toBeNull();
   } finally {
     sidebar.remove();
+    dock.remove();
   }
+});
+
+it("renders transport and playback settings inline without portal targets", async () => {
+  await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.querySelector('[aria-label="Playback controls"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Master volume"]')).not.toBeNull();
 });
 
 afterEach(async () => {
