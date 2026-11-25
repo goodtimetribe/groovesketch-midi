@@ -467,13 +467,13 @@ const Preview = forwardRef<PreviewHandle, {
         }}>Loop{looping && <span className="loop-enabled"> Enabled</span>}</button>
       </div>
       <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
+      {[routing, chordRouting, midi1Routing, midi2Routing, drumRouting].some((route) => route.destination.kind === "browser") &&
+        <label className="volume transport-volume">Volume <span>{volume}%</span>
+          <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
+            disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
+        </label>}
     </div>;
   const playbackControls = <div className="preview" aria-label="Bassline preview">
-    {[routing, chordRouting, midi1Routing, midi2Routing, drumRouting].some((route) => route.destination.kind === "browser") &&
-      <label className="volume">Volume <span>{volume}%</span>
-        <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
-          disabled={routing.destination.kind === "midi" && chordRouting.destination.kind === "midi" && (!tracks.midi1.notes.length || midi1Routing.destination.kind === "midi") && (!tracks.midi2.notes.length || midi2Routing.destination.kind === "midi") && (!drumNotes.length || drumRouting.destination.kind === "midi")} onChange={(event) => changeVolume(Number(event.target.value))} />
-      </label>}
     <button type="button" onClick={() => void refreshDevices()} disabled={refreshing}>
       {refreshing ? "Refreshing..." : "Refresh Devices"}
     </button>

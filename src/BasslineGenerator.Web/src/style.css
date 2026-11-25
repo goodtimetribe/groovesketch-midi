@@ -104,6 +104,8 @@ summary { cursor: pointer; font-weight: 700; }
 .transport-title h2 { font-size: 1rem; }
 .volume { margin: 12px 0 8px; }
 .volume span { color: #e6ecf5; }
+.transport-volume { flex-direction: row; align-items: center; gap: 8px; flex: 0 1 180px; min-width: 145px; margin: 0; white-space: nowrap; }
+.transport-volume input { width: 100px; min-width: 60px; padding: 0; }
 .transport-state { margin-left: auto; color: #b7c5d6; font-size: .8rem; font-weight: 700; white-space: nowrap; }
 .preview > button { margin-bottom: 4px; }
 .track-sounds-summary { display: grid; gap: 4px; margin-top: 8px; color: #a9b7c8; font-size: .75rem; font-weight: 400; }
@@ -159,7 +161,7 @@ td, th { padding: 8px; border-bottom: 1px solid #34445a; }
   .transport-title { display: none; }
   .transport-dock { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
 }
-@media (max-width: 480px) { .topbar { flex-direction: column; } .download-options { left: 0; right: auto; } .card { padding: 16px; } .grid-two { gap: 0 8px; } .dock-region { padding: 8px; } .transport-buttons { gap: 6px; } .transport-buttons button { padding: 7px 9px; } .transport-state { align-self: flex-start; } }
+@media (max-width: 480px) { .topbar { flex-direction: column; } .download-options { left: 0; right: auto; } .card { padding: 16px; } .grid-two { gap: 0 8px; } .dock-region { padding: 8px; } .transport-buttons { gap: 6px; } .transport-buttons button { padding: 7px 9px; } .transport-state { align-self: flex-start; } .transport-volume { flex: 1 1 140px; min-width: 0; } .transport-volume input { width: 80px; } }
 @media (max-width: 480px), (max-height: 360px) {
   .dock-region { max-height: none; overflow: visible; padding: 4px 8px; }
   .transport-dock { flex-wrap: wrap; gap: 4px; padding: 4px 6px; }

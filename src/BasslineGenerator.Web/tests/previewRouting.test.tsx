@@ -296,7 +296,8 @@ it("places transport in its dock and playback settings in the supplied sidebar",
       "Play", "Pause", "Stop", "Restart", "Loop Enabled",
     ]);
     expect(transport!.querySelector('[role="status"]')?.textContent).toBe("Stopped");
-    expect(transport!.contains(sidebar.querySelector('[aria-label="Master volume"]'))).toBe(false);
+    expect(transport!.querySelector('[aria-label="Master volume"]')).not.toBeNull();
+    expect(sidebar.querySelector('[aria-label="Master volume"]')).toBeNull();
     expect(sidebar.querySelector('[aria-label="Playback controls"]')).toBeNull();
     expect(container.querySelector('[aria-label="Playback controls"]')).toBeNull();
     const loop = [...transport!.querySelectorAll("button")].find((item) => item.textContent === "Loop Enabled")!;
@@ -316,8 +317,9 @@ it("places transport in its dock and playback settings in the supplied sidebar",
 
 it("renders transport and playback settings inline without portal targets", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
-  expect(container.querySelector('[aria-label="Playback controls"]')).not.toBeNull();
-  expect(container.querySelector('[aria-label="Master volume"]')).not.toBeNull();
+  const transport = container.querySelector('[aria-label="Playback controls"]')!;
+  expect(transport.querySelector('[aria-label="Master volume"]')).not.toBeNull();
+  expect(container.querySelector(".preview [aria-label='Master volume']")).toBeNull();
 });
 
 afterEach(async () => {

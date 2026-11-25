@@ -149,7 +149,8 @@ it("generates and plays a complete sketch immediately on first load", async () =
   expect(dock.hidden).toBe(false);
   expect(dock.contains(container.querySelector('[aria-label="Playback controls"]'))).toBe(true);
   expect(container.querySelector(".app-content")?.contains(dock)).toBe(false);
-  expect(container.querySelector("aside")?.contains(container.querySelector('[aria-label="Master volume"]'))).toBe(true);
+  expect(dock.contains(container.querySelector('[aria-label="Master volume"]'))).toBe(true);
+  expect(container.querySelector("aside")?.querySelector('[aria-label="Master volume"]')).toBeNull();
   expect(vi.mocked(api.generate)).toHaveBeenCalledWith(expect.objectContaining({ rootNote, scaleType, style, progression, seed }));
   expect(vi.mocked(api.melody).mock.calls[0][0]).not.toHaveProperty("style");
   const latestLoad = load.mock.calls.at(-1)!;
