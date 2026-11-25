@@ -18,7 +18,7 @@ Resolution of an output identifier to a Web MIDI output is a front-end concern.
 Standard MIDI files contain channel assignments but cannot select a physical
 output or carry the route's display name.
 
-`src/BasslineGenerator.Web/src/logicalRoles.ts` is the minimal proof of this
+`src/GrooveSketch.Web/src/logicalRoles.ts` is the minimal proof of this
 boundary. It defines device-independent roles, a `RoleRouting` model, validation,
 legacy-role normalization, user-assignable track names, and reference
 assignments. In particular, drums may use channel 10 while auxiliary percussion

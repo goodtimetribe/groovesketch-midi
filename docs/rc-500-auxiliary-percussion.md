@@ -83,9 +83,9 @@ mixing RC-500 behavior into the Core model.
   `RX NOTE CH`, rhythm `PART1`-`PART4`, and Rhythm output including `LOOP`.
 - [BOSS RC-500 Owner's Manual](https://static.roland.com/assets/media/pdf/RC-500_eng01_W.pdf):
   MIDI receive/transmit, synchronization, and Rhythm operation.
-- `src/BasslineGenerator.Web/src/hardwareTracks.ts`: current drum-role and
+- `src/GrooveSketch.Web/src/hardwareTracks.ts`: current drum-role and
   channel definitions.
-- `src/BasslineGenerator.Web/src/allTracksMidi.ts`: current combined Type 1
+- `src/GrooveSketch.Web/src/allTracksMidi.ts`: current combined Type 1
   drum-track export.
-- `src/BasslineGenerator.Web/src/circuitTracksDrums.ts`: existing
+- `src/GrooveSketch.Web/src/circuitTracksDrums.ts`: existing
   Circuit Tracks-specific note rewriting.

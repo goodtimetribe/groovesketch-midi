@@ -67,7 +67,7 @@ Choose **Blazor WASM** if the implementation team is substantially stronger in C
 Proposed paths are conceptual; none of these application files exist yet.
 
 ```text
-src/BasslineGenerator.Web/
+src/GrooveSketch.Web/
 ├── public/                     # static assets
 ├── src/
 │   ├── app/                    # application shell, configuration, composition

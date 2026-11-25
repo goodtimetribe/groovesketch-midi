@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/BasslineGenerator.Web
+        working-directory: src/GrooveSketch.Web
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: src/BasslineGenerator.Web/package-lock.json
+          cache-dependency-path: src/GrooveSketch.Web/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Test frontend
@@ -60,7 +60,7 @@ jobs:
         run: dotnet test --configuration Release --no-build
 
       - name: Publish API
-        run: dotnet publish src/BasslineGenerator.Api -c Release -o "${{ runner.temp }}/basslinegenerator-api"
+        run: dotnet publish src/GrooveSketch.Api -c Release -o "${{ runner.temp }}/basslinegenerator-api"
 
       - name: Upload API artifact
         uses: actions/upload-artifact@v4
@@ -126,7 +126,7 @@ jobs:
             echo "Server main does not match the validated commit; refusing to deploy." >&2
             exit 1
           fi
-          dotnet publish src/BasslineGenerator.Api -c Release -o /opt/basslinegenerator
+          dotnet publish src/GrooveSketch.Api -c Release -o /opt/basslinegenerator
           sudo -n systemctl restart basslinegenerator
           systemctl is-active --quiet basslinegenerator
           status=$(curl --fail --silent --show-error --retry 5 --retry-delay 3 \

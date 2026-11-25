@@ -1,8 +1,8 @@
-# Bassline Generator: MVP frontend design
+# GrooveSketch MIDI: MVP frontend design
 
 ## Product direction
 
-**A desktop-first creative workspace for making a bassline, inspecting it, refining its parameters, and taking MIDI into a DAW.** The app is a client of the existing stateless API; no API implementation or backend changes are assumed.
+**A desktop-first creative workspace for sketching multi-track ideas, assigning logical roles and routes, shaping patterns and variations, and taking MIDI into a DAW or hardware.** The app is a client of the existing stateless API; no API implementation or backend changes are assumed.
 
 The central creative loop is **set the musical context → choose a track outcome → inspect → adjust → download MIDI**. A musician can save the generated package as a local JSON file, reopen it, or share a portable code. The workspace favors a few understandable controls first, with detailed behavior and MIDI controls available when needed.
 
@@ -23,7 +23,7 @@ See [Frontend Readiness Review](frontend-readiness-review.md) for the API assess
 
 ## Key journeys
 
-1. **Start a bassline:** Select key, scale, style, BPM, and length. Optionally select a progression or leave it random. Generate, inspect the piano roll and metadata, then download MIDI.
+1. **Start a sketch:** Select key, scale, style, BPM, and length. Optionally select a progression or leave it random. Generate, inspect the piano roll and metadata, then build out roles, patterns, and variations before downloading MIDI.
 2. **Refine an idea:** Change movement, groove, mutation, tension, repetition, or other settings. The existing result remains visible as “previous result”; select **Regenerate** to apply the draft. Keep the seed to compare settings, or choose **New seed** for another variation.
 3. **Build an arrangement:** Choose the built-in arrangement or edit a custom list of named sections. Inspect section boundaries and effective behavior, then regenerate the whole result.
 4. **Save and return:** Download a package JSON file. Later, load it from disk and replay it to validate compatibility before using it as the active result. Exported JSON preserves its note snapshot even if a future API no longer supports replay.
@@ -38,7 +38,7 @@ The generator is the home screen and the only required page. At typical desktop 
 
 ```text
 +--------------------------------------------------------------------------------+
-| Bassline Generator                         Load package  Load code  Help       |
+| GrooveSketch MIDI                          Load package  Load code  Help       |
 +---------------------------+----------------------------------------------------+
 | GENERATE                  | RESULT                     [Save] [Share] [MIDI]   |
 | Key [A]  Scale [Minor]    | A Minor · Acid · 140 BPM · 8 bars                 |

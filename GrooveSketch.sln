@@ -5,15 +5,15 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasslineGenerator.Core", "src\BasslineGenerator.Core\BasslineGenerator.Core.csproj", "{6F5794C6-B757-45F1-B673-50BE81F41116}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrooveSketch.Core", "src\GrooveSketch.Core\GrooveSketch.Core.csproj", "{6F5794C6-B757-45F1-B673-50BE81F41116}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasslineGenerator.Cli", "src\BasslineGenerator.Cli\BasslineGenerator.Cli.csproj", "{C2405267-2ECA-46D6-B49F-F4E7EF37D3F0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrooveSketch.Cli", "src\GrooveSketch.Cli\GrooveSketch.Cli.csproj", "{C2405267-2ECA-46D6-B49F-F4E7EF37D3F0}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasslineGenerator.Tests", "tests\BasslineGenerator.Tests\BasslineGenerator.Tests.csproj", "{B8550F72-EF89-4106-B12E-6AD97FF946EF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrooveSketch.Tests", "tests\GrooveSketch.Tests\GrooveSketch.Tests.csproj", "{B8550F72-EF89-4106-B12E-6AD97FF946EF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasslineGenerator.Api", "src\BasslineGenerator.Api\BasslineGenerator.Api.csproj", "{0D22AF90-9AFD-4786-99F5-145F15E9555A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrooveSketch.Api", "src\GrooveSketch.Api\GrooveSketch.Api.csproj", "{0D22AF90-9AFD-4786-99F5-145F15E9555A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

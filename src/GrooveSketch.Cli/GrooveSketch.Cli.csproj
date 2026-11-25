@@ -3,12 +3,14 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>BasslineGenerator.Cli</AssemblyName>
+    <RootNamespace>BasslineGenerator</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../BasslineGenerator.Core/BasslineGenerator.Core.csproj" />
+    <ProjectReference Include="../GrooveSketch.Core/GrooveSketch.Core.csproj" />
   </ItemGroup>
 
 </Project>
