@@ -43,6 +43,7 @@ export default function App() {
   const [loadOpen, setLoadOpen] = useState(false);
   const [sectionIndex, setSectionIndex] = useState(0);
   const [playbackPane, setPlaybackPane] = useState<HTMLElement | null>(null);
+  const [transportPane, setTransportPane] = useState<HTMLElement | null>(null);
   const [patternPane, setPatternPane] = useState<HTMLElement | null>(null);
   const [drumDownloadPane, setDrumDownloadPane] = useState<HTMLElement | null>(null);
   const [allDownloadPane, setAllDownloadPane] = useState<HTMLElement | null>(null);
@@ -294,6 +295,7 @@ export default function App() {
       ? result.effectiveConfiguration.progressionName : request.progression
     : "Random for scale");
   return <div className="app">
+    <div className="app-content">
     <header className="topbar"><div><p className="eyebrow">GOOD TIME TRIBE</p><h1>Bassline Generator</h1></div>
       <nav aria-label="Package actions">
         <button type="button" disabled={!result || !!busy} onClick={save}>Save package</button>
@@ -475,7 +477,7 @@ export default function App() {
             Bass and chords both use MIDI channel 2 in the Bass + Chords export. They may play on the same instrument when routed to the same MIDI destination. Export is still available; change the bass channel and regenerate, or route the tracks separately in your DAW.
           </p>}
           <Preview ref={preview} pkg={result} disabled={busy === "Generating bassline" || busy === "Generating sketch"}
-            playbackPane={playbackPane} patternPane={patternPane} drumDownloadPane={drumDownloadPane}
+            playbackPane={playbackPane} transportPane={transportPane} patternPane={patternPane} drumDownloadPane={drumDownloadPane}
             allDownloadPane={allDownloadPane} onPreviewDownload={closeDownloads} sketch={sketch} sketchBusy={busy === "Generating sketch"}
             patternSelection={{ id: patternId, onChange: setPatternId }} onGeneratingChange={setTrackBusy} />
           <section className="card"><p className="eyebrow">THE DETAILS</p><h2>Package overview</h2>
@@ -487,6 +489,8 @@ export default function App() {
         </>}
       </div>
     </main>
+    </div>
+    <div className="dock-region" ref={setTransportPane} hidden={!result} />
     {shareOpen && <Modal titleId="share-title" onClose={() => setShareOpen(false)}>
       <h2 id="share-title">Share this bassline</h2><p>Anyone with this code can recreate the settings. Codes do not include the note snapshot.</p>
       {sketch?.pkg === result && <p>Share codes do not include the sketch's melody, drums, or preview track edits.</p>}

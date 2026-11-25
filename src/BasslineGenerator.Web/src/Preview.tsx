@@ -86,13 +86,13 @@ function initialProfiles() {
 }
 
 const Preview = forwardRef<PreviewHandle, {
-  pkg: GenerationPackage; disabled: boolean; playbackPane?: HTMLElement | null;
+  pkg: GenerationPackage; disabled: boolean; playbackPane?: HTMLElement | null; transportPane?: HTMLElement | null;
   patternPane?: HTMLElement | null; drumDownloadPane?: HTMLElement | null; allDownloadPane?: HTMLElement | null;
   onPreviewDownload?: () => void;
   sketch?: Sketch | null; sketchBusy?: boolean;
   patternSelection?: { id: string; onChange: (id: string) => void };
   onGeneratingChange?: (generating: boolean) => void;
-}>(function Preview({ pkg, disabled, playbackPane, patternPane, drumDownloadPane, allDownloadPane, onPreviewDownload, sketch, sketchBusy, patternSelection, onGeneratingChange }, ref) {
+}>(function Preview({ pkg, disabled, playbackPane, transportPane, patternPane, drumDownloadPane, allDownloadPane, onPreviewDownload, sketch, sketchBusy, patternSelection, onGeneratingChange }, ref) {
   const [initial] = useState(initialProfiles);
   const [profiles, setProfiles] = useState(initial.data);
   const initialProfile = initial.data.profiles.find((p) => p.id === initial.data.activeId);
@@ -452,8 +452,7 @@ const Preview = forwardRef<PreviewHandle, {
   const drumDownload = <button type="button" disabled={!drumNotes.length} onClick={() => { onPreviewDownload?.(); downloadCircuitTracksDrums(); }}>Download Circuit Tracks Drum MIDI</button>;
   const allDownload = <button type="button" disabled={disabled || generating || !readyChords || !!readyChords.error}
     onClick={() => { onPreviewDownload?.(); downloadAllTracks(); }}>Download All Tracks MIDI (Circuit Tracks)</button>;
-  const playbackControls = <div className="preview" aria-label="Bassline preview">
-    <div className="transport transport-dock" role="group" aria-label="Playback controls">
+  const transportControls = <div className="transport transport-dock" role="group" aria-label="Playback controls">
       <div className="transport-title"><p className="eyebrow">PREVIEW TRANSPORT</p><h2>Listen</h2></div>
       <div className="transport-buttons">
         <button type="button" className="primary" onClick={() => start(false)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision || !readyChords || !!readyChords.error || state === "playing" || (!Object.values(tracks).some((track) => track.notes.length) && !drumNotes.length)}>Play</button>
@@ -466,7 +465,8 @@ const Preview = forwardRef<PreviewHandle, {
         }}>{looping ? "Loop Enabled" : "Loop"}</button>
       </div>
       <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
-    </div>
+    </div>;
+  const playbackControls = <div className="preview" aria-label="Bassline preview">
     {[routing, chordRouting, midi1Routing, midi2Routing, drumRouting].some((route) => route.destination.kind === "browser") &&
       <label className="volume">Volume <span>{volume}%</span>
         <input type="range" min="0" max="100" value={volume} aria-label="Master volume" aria-valuetext={`${volume}%`}
@@ -563,6 +563,7 @@ const Preview = forwardRef<PreviewHandle, {
     {initial.channelError && <p className="warning" role="alert">The previous MIDI channel could not be loaded from this browser session.</p>}
   </div>;
   return <>
+    {transportPane ? createPortal(transportControls, transportPane) : transportControls}
     {playbackPane ? createPortal(playbackControls, playbackPane) : playbackControls}
     {patternPane ? createPortal(patternControls, patternPane) : patternControls}
     {drumDownloadPane ? createPortal(drumDownload, drumDownloadPane) : drumDownload}
