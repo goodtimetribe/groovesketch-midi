@@ -8,13 +8,15 @@ import * as allTracksMidi from "../src/allTracksMidi";
 import { initialRequest } from "../src/domain";
 import { PlaybackTransport } from "../src/playback";
 import Preview from "../src/Preview";
-import type { GenerationPackage } from "../src/types";
+import type { GenerationPackage, NoteData } from "../src/types";
 
 vi.mock("../src/PianoRoll", () => ({
-  default: ({ chordNotes, drumNotes, workflow }: { chordNotes: unknown[]; drumNotes: unknown[]; workflow: {
-    generate: (track: "drums", role: "drums", action: "apply") => void } }) =>
+  default: ({ chordNotes, drumNotes, workflow }: { chordNotes: unknown[]; drumNotes: NoteData[]; workflow: {
+    generate: (track: "drums", role: "drums", action: "apply" | "vary") => void } }) =>
     <><div data-testid="chord-count">{chordNotes.length}</div><div data-testid="drum-count">{drumNotes.length}</div>
-      <button type="button" onClick={() => workflow.generate("drums", "drums", "apply")}>Apply Pattern</button></>,
+      <div data-testid="drum-beats">{drumNotes.map((note) => note.startBeat).join(",")}</div>
+      <button type="button" onClick={() => workflow.generate("drums", "drums", "apply")}>Apply Pattern</button>
+      <button type="button" onClick={() => workflow.generate("drums", "drums", "vary")}>Vary Pattern</button></>,
 }));
 
 const pkg: GenerationPackage = {
@@ -87,12 +89,20 @@ it("plays a selected drum pattern on channel 10, updates it during playback, and
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("0");
   await act(async () => button("Apply Pattern").click());
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
+  const appliedBeats = container.querySelector('[data-testid="drum-beats"]')?.textContent;
+  expect(container.textContent).toContain("Applied pattern: Four on the floor");
+  await act(async () => button("Vary Pattern").click());
+  expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
+  expect(container.querySelector('[data-testid="drum-beats"]')?.textContent).not.toBe(appliedBeats);
+  expect(container.textContent).toContain("Applied pattern: Four on the floor — Variation");
   await act(async () => button("Play").click());
-  expect(output.send.mock.calls.map((call) => call[0])).toContainEqual([0x99, 60, 110]);
+  expect(output.send.mock.calls.some((call) => call[0][0] === 0x99 && call[0][1] === 60 && call[0][2] > 0)).toBe(true);
   await select("Drum pattern", "half-time");
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("10");
+  expect(container.textContent).toContain("Applied pattern: Four on the floor — Variation");
   await act(async () => button("Apply Pattern").click());
   expect(container.querySelector('[data-testid="drum-count"]')?.textContent).toBe("2");
+  expect(container.textContent).toContain("Applied pattern: Half time");
   expect(output.clear).toHaveBeenCalled();
   expect(output.send.mock.calls.filter((call) => call[0][0] === 0x99 && call[0][1] === 60)).toHaveLength(2);
   await act(async () => button("Pause").click());
@@ -104,6 +114,8 @@ it("plays a selected drum pattern on channel 10, updates it during playback, and
 
 it("shows the selected pattern's description and Drum 4 sample guidance", async () => {
   await act(async () => root.render(<Preview pkg={pkg} disabled={false} />));
+  expect(container.textContent).toContain("Use Pattern applies the selected groove unchanged");
+  expect(container.textContent).toContain("Create Variation shifts a hit while keeping the same pattern family");
   await select("Drum pattern", "house-shaker");
   expect(container.textContent).toContain("syncopated shaker on Drum 4");
   expect(container.textContent).toContain("Load the suggested percussion sample on Drum 4");

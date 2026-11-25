@@ -442,9 +442,11 @@ const Preview = forwardRef<PreviewHandle, {
       </select>
     </label>
     {selectedPattern && <p className="hint">{selectedPattern.description}</p>}</>}
-    <p className="hint">Select a pattern, then apply it to Drums or Aux Percussion above the piano roll.</p>
-    <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === currentAppliedPattern.drums.id)?.name ?? "None"}</p>
-    <p className="hint">Applied aux percussion pattern: {drumPatterns.find((pattern) => pattern.id === currentAppliedPattern.aux.id)?.name ?? "None"}</p>
+    <p className="hint">Use Pattern applies the selected groove unchanged; Create Variation shifts a hit while keeping the same pattern family.</p>
+    <p className="hint">Applied pattern: {drumPatterns.find((pattern) => pattern.id === currentAppliedPattern.drums.id)?.name ?? "None"}
+      {currentAppliedPattern.drums.seed !== null && " — Variation"}</p>
+    <p className="hint">Applied aux percussion pattern: {drumPatterns.find((pattern) => pattern.id === currentAppliedPattern.aux.id)?.name ?? "None"}
+      {currentAppliedPattern.aux.seed !== null && " — Variation"}</p>
     <button type="button" disabled={sketchBusy || (!currentAppliedPattern.drums.id && !currentAppliedPattern.aux.id)}
       onClick={() => setAppliedPattern({ pkg, drums: { id: "", seed: null }, aux: { id: "", seed: null } })}>Clear Drums</button>
     <p className="hint">Exports the applied drum pattern only, mapped to Circuit Tracks Drum 1–4. Load the suggested percussion sample on Drum 4.</p>

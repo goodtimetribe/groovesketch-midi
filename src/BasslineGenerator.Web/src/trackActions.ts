@@ -18,6 +18,12 @@ export const actionDescription: Record<TrackAction, string> = {
   vary: "Create a related version of this role while keeping its musical intent.",
 };
 
+export function actionDescriptionForRole(action: TrackAction, role: ActionableRole): string {
+  if (action === "vary" && (role === "drums" || role === "aux-percussion"))
+    return "Create a rhythmic variation of the selected pattern while keeping its pattern family.";
+  return actionDescription[action];
+}
+
 export function actionButtonLabel(action: TrackAction, role: ActionableRole): string {
   if (action === "rebuild") return `Replace ${roleLabel[role]}`;
   if (action === "apply") return `Use ${roleLabel[role]} Pattern`;
@@ -86,8 +92,35 @@ export function varyChordNotes(notes: NoteData[], seed: number): NoteData[] {
 
 export function varyRhythmNotes(notes: NoteData[], seed: number): NoteData[] {
   const next = random(seed);
-  return notes.map((note) => ({
+  const varied = notes.map((note) => ({
     ...note,
     velocity: Math.max(1, Math.min(127, Math.round(note.velocity + (next() - 0.5) * 22))),
   }));
+  const bars = new Map<number, number[]>();
+  varied.forEach((note, index) => {
+    const bar = Math.floor(note.startBeat / 4);
+    bars.set(bar, [...(bars.get(bar) ?? []), index]);
+  });
+  for (const [bar, indexes] of bars) {
+    const percussion = indexes.filter((index) => ![36, 38].includes(varied[index].midiNote));
+    const candidates = percussion.length ? percussion : indexes;
+    const first = Math.floor(next() * candidates.length);
+    for (let offset = 0; offset < candidates.length; offset++) {
+      const index = candidates[(first + offset) % candidates.length];
+      const note = varied[index];
+      const barStart = bar * 4;
+      const shifts = next() < 0.5 ? [0.5, -0.5, 0.25, -0.25] : [-0.5, 0.5, -0.25, 0.25];
+      const shift = shifts.find((amount) => {
+        const startBeat = note.startBeat + amount;
+        return startBeat >= barStart && startBeat + note.durationBeats <= barStart + 4 &&
+          !indexes.some((other) => other !== index && varied[other].midiNote === note.midiNote &&
+            varied[other].startBeat === startBeat);
+      });
+      if (shift !== undefined) {
+        varied[index] = { ...note, startBeat: note.startBeat + shift };
+        break;
+      }
+    }
+  }
+  return varied;
 }

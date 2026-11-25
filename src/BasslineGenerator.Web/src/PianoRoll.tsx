@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import type { PlaybackState, PlaybackTransport } from "./playback";
 import { createTracks, rgba, trackNoteColor, tracksForRendering, type MelodicContent, type TrackViewModel } from "./trackView";
 import { hardwareTracks, melodicTrackIds, type MelodicTrackId } from "./hardwareTracks";
-import { actionLabel, actionsForRole, defaultActionForRole, legacyMelodyRole, roleLabel,
-  actionButtonLabel, actionDescription, type ActionableRole, type TrackAction } from "./trackActions";
+import { actionDescriptionForRole, actionLabel, actionsForRole, defaultActionForRole, legacyMelodyRole, roleLabel,
+  actionButtonLabel, type ActionableRole, type TrackAction } from "./trackActions";
 import type { GenerationPackage, NoteData } from "./types";
 
 export type FocusTrack = MelodicTrackId | "drums";
@@ -73,7 +73,7 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
         {buttonLabel}
       </button>
       {role && <span id={actionHintId} className="hint track-action-hint" aria-live="polite">
-        {confirmReplacement ? "This replaces the current notes. Select the button again to confirm." : actionDescription[action]}
+        {confirmReplacement ? "This replaces the current notes. Select the button again to confirm." : actionDescriptionForRole(action, role)}
       </span>}
     </>}
     {workflow && track.kind === "drumGroup" && <>
@@ -102,7 +102,7 @@ function TrackRow({ track, pkg, workflow, onVisibility }: { track: TrackViewMode
         {buttonLabel}
       </button>
       <span id={actionHintId} className="hint track-action-hint">
-        {workflow.patternSelected ? actionDescription[action] : "Select a drum pattern to use or vary percussion."}
+        {workflow.patternSelected ? actionDescriptionForRole(action, role as "drums" | "aux-percussion") : "Select a drum pattern to use or vary percussion."}
       </span>
     </>}
   </div>;
@@ -251,7 +251,7 @@ export default function PianoRoll({ pkg, transport, playbackState, chordNotes, d
           const icon = action === "rebuild" ? "↻" : action === "apply" ? "♪" : "✨";
           return <button key={action} className="quick-action" type="button"
             aria-label={confirming ? `Confirm ${actionButtonLabel(action, role)}` : actionButtonLabel(action, role)}
-            title={`${confirming ? "Confirm " : ""}${actionLabel[action]} — ${roleLabel[role]}`}
+            title={`${confirming ? "Confirm " : ""}${actionLabel[action]} — ${roleLabel[role]}: ${actionDescriptionForRole(action, role)}`}
             disabled={workflow!.busy || workflow!.disabled || ((role === "drums" || role === "aux-percussion") && !workflow!.patternSelected)}
             onClick={() => performQuickAction(track, role, action)}>
             {confirming ? "✓" : icon}
