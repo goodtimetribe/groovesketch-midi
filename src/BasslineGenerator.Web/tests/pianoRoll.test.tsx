@@ -146,7 +146,8 @@ describe("piano roll", () => {
 
   it("preserves zoom, paging, note inspection, and selection", async () => {
     const visibility = container.querySelector(".roll-visibility")!;
-    expect(visibility.querySelector("legend")?.textContent).toBe("Tracks & actions");
+    expect(visibility.querySelector("summary")?.textContent).toBe("Tracks & actions");
+    expect(visibility.querySelector("legend")?.textContent).toBe("Track controls");
     expect(visibility.querySelector(":scope > label")?.textContent).toContain("Bars shown");
     await act(async () => button("C2 (36)").click());
     expect(container.textContent).toContain("Selected: C2, beat 0, length 1, velocity 127.");
@@ -173,17 +174,20 @@ describe("piano roll", () => {
     expect(canvas.querySelector("canvas")).not.toBeNull();
   });
 
-  it("collapses arrangement controls while keeping tracks and the piano roll visible", async () => {
+  it("starts advanced controls collapsed while keeping tracks and the piano roll available", async () => {
     const options = container.querySelector<HTMLDetailsElement>(".roll-options")!;
     const summary = options.querySelector("summary")!;
+    const trackOptions = container.querySelector<HTMLDetailsElement>(".track-actions-options")!;
+    expect(options.open).toBe(false);
+    expect(trackOptions.open).toBe(false);
     await changeSelect("Focus", "chords");
     await act(async () => summary.click());
-    expect(options.open).toBe(false);
+    expect(options.open).toBe(true);
     expect(options.querySelector('[aria-label="Arrangement sections"]')).not.toBeNull();
     expect(container.querySelector(".roll-visibility")?.closest("details")).toBeNull();
     expect(container.querySelector("canvas")?.closest("details")).toBeNull();
     await act(async () => summary.click());
-    expect(options.open).toBe(true);
+    expect(options.open).toBe(false);
     expect([...options.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Focus"))?.querySelector("select")?.value).toBe("chords");
   });
 
@@ -223,6 +227,13 @@ describe("piano roll", () => {
 
     const quickActions = container.querySelector(".roll-nav")!;
     expect(quickActions.querySelectorAll(".quick-role-actions")).toHaveLength(6);
+    const focusLead = quickActions.querySelector<HTMLButtonElement>('[aria-label="Focus Lead track"]')!;
+    expect(focusLead.getAttribute("aria-pressed")).toBe("false");
+    await act(async () => focusLead.click());
+    expect(focusLead.getAttribute("aria-pressed")).toBe("true");
+    expect(focusLead.closest(".quick-role-actions")?.classList.contains("is-focused")).toBe(true);
+    expect([...container.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Focus"))?.querySelector("select")?.value)
+      .toBe("midi2");
     expect(quickActions.querySelector('[aria-label="Replace Bass"]')?.textContent).toBe("↻");
     expect(quickActions.querySelector('[aria-label="Create Bass Variation"]')?.textContent).toBe("✨");
     expect(quickActions.querySelector('[aria-label="Use Drums Pattern"]')?.textContent).toBe("♪");
