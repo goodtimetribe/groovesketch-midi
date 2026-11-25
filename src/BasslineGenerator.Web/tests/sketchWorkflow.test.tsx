@@ -531,7 +531,6 @@ it("keeps creative controls available with Settings and piano-roll options colla
   const roll = container.querySelector<HTMLDetailsElement>(".roll-options")!;
   await select("Focus", "midi2");
   await act(async () => settings.querySelector("summary")!.click());
-  await act(async () => roll.querySelector("summary")!.click());
   const sketchAction = container.querySelector('[aria-label="Sketch creation"]')!;
   expect(settings.open).toBe(false);
   expect(roll.open).toBe(false);
