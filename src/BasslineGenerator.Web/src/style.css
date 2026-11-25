@@ -157,3 +157,13 @@ td, th { padding: 8px; border-bottom: 1px solid #34445a; }
   .transport-dock { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
 }
 @media (max-width: 480px) { .topbar { flex-direction: column; } .download-options { left: 0; right: auto; } .card { padding: 16px; } .grid-two { gap: 0 8px; } .dock-region { padding: 8px; } .transport-buttons { gap: 6px; } .transport-buttons button { padding: 7px 9px; } .transport-state { align-self: flex-start; } }
+@media (max-width: 480px), (max-height: 360px) {
+  .dock-region { max-height: none; overflow: visible; padding: 4px 8px; }
+  .transport-dock { flex-wrap: wrap; gap: 4px; padding: 4px 6px; }
+  .transport-title, .loop-enabled { display: none; }
+  .transport-dock button[aria-pressed="true"]::after { content: " On"; }
+  .transport-dock button[aria-pressed="false"]::after { content: " Off"; }
+  .transport-dock .transport-buttons { flex: 1 1 auto; gap: 4px; }
+  .transport-dock .transport-buttons button { padding: 7px 4px; font-size: .7rem; white-space: nowrap; }
+  .transport-dock .transport-state { align-self: center; font-size: .7rem; }
+}

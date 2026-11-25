@@ -288,8 +288,10 @@ it("places transport in its dock and playback settings in the supplied sidebar",
     expect(sidebar.querySelector('[aria-label="Playback controls"]')).toBeNull();
     expect(container.querySelector('[aria-label="Playback controls"]')).toBeNull();
     const loop = [...transport!.querySelectorAll("button")].find((item) => item.textContent === "Loop Enabled")!;
+    expect(loop.getAttribute("aria-label")).toBe("Loop Enabled");
     await act(async () => loop.click());
     expect(loop.getAttribute("aria-pressed")).toBe("false");
+    expect(loop.getAttribute("aria-label")).toBe("Loop");
     expect(loop.textContent).toBe("Loop");
     await act(async () => refresh.click());
     expect(sidebar.textContent).toContain("Circuit Tracks");

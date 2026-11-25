@@ -459,10 +459,10 @@ const Preview = forwardRef<PreviewHandle, {
         <button type="button" onClick={() => transport.pause()} disabled={disabled || state !== "playing"}>Pause</button>
         <button type="button" onClick={() => transport.stop()}>Stop</button>
         <button type="button" onClick={() => start(true)} disabled={disabled || unavailable || chordUnavailable || drumUnavailable || midi1Unavailable || midi2Unavailable || collision || !readyChords || !!readyChords.error || (!Object.values(tracks).some((track) => track.notes.length) && !drumNotes.length)}>Restart</button>
-        <button type="button" aria-pressed={looping} onClick={() => {
+        <button type="button" aria-pressed={looping} aria-label={looping ? "Loop Enabled" : "Loop"} onClick={() => {
           transport.setLoop(!looping);
           setLooping(!looping);
-        }}>{looping ? "Loop Enabled" : "Loop"}</button>
+        }}>Loop{looping && <span className="loop-enabled"> Enabled</span>}</button>
       </div>
       <p className="transport-state" role="status">{state === "playing" ? "Playing" : state === "paused" ? "Paused" : "Stopped"}</p>
     </div>;
