@@ -322,7 +322,6 @@ export default function App() {
       <span className="sketch-settings-status" role="status" aria-live="polite">
         {sketchSettingsChanged && <><span aria-hidden="true">●</span> Settings Changed</>}
       </span>
-      <button className="generate" type="submit" form="generation-form" disabled={!!busy || !catalogs}>{result ? "Regenerate Bass Package" : "Generate Bass Package"}</button>
     </div>
     <div className="announcements" aria-live="polite">
       {busy && <p className="notice">{busy}…</p>}
@@ -330,7 +329,7 @@ export default function App() {
       {error && <p className="error" role="alert">{error}</p>}
       {catalogError && <p className="error" role="alert">Could not load choices: {catalogError} <button type="button" onClick={() => void loadCatalogs()}>Retry</button></p>}
     </div>
-    <main className="workspace">
+    <main className={`workspace${result ? " has-result" : ""}`}>
       <aside className="settings card" aria-label="Playback and hardware controls">
         <div ref={setPlaybackPane}>
         {!result && <><p className="eyebrow">PREVIEW TRANSPORT</p><h2>Listen</h2><p className="hint">Generate a sketch, then press Play to hear it.</p></>}
@@ -469,8 +468,9 @@ export default function App() {
             <p className="hint">A muted fader shows a style default, not its resolved value. Move it to set an override.</p>
           </details>
         </fieldset>
-      </form>
-      </div>
+        </form>
+        <button className="generate package-generate" type="submit" form="generation-form" disabled={!!busy || !catalogs}>Generate Bass Package</button>
+        </div>
         {!result ? <section className="empty card"><p className="eyebrow">YOUR NEXT IDEA STARTS HERE</p><h2>Make room for your next idea.</h2><p>Generate a sketch and press Play, or adjust the settings to shape your sound first.</p></section> : <>
           {showSettingsWarning && <p className="warning">Settings changed. The visualization, save, share, and MIDI actions use the previous result. Regenerate to apply changes.</p>}
           {result.effectiveConfiguration.channel === chordExportChannel && <p className="warning" role="status">
@@ -480,7 +480,7 @@ export default function App() {
             playbackPane={playbackPane} transportPane={transportPane} patternPane={patternPane} drumDownloadPane={drumDownloadPane}
             allDownloadPane={allDownloadPane} onPreviewDownload={closeDownloads} sketch={sketch} sketchBusy={busy === "Generating sketch"}
             patternSelection={{ id: patternId, onChange: setPatternId }} onGeneratingChange={setTrackBusy} />
-          <section className="card"><p className="eyebrow">THE DETAILS</p><h2>Package overview</h2>
+          <section className="card package-overview"><p className="eyebrow">THE DETAILS</p><h2>Package overview</h2>
             <div className="stats"><div><strong>{result.statistics?.noteCount ?? "—"}</strong><span>Notes</span></div><div><strong>{result.statistics?.uniqueNotes ?? "—"}</strong><span>Unique pitches</span></div><div><strong>{result.statistics?.lowestNote ?? "—"}–{result.statistics?.highestNote ?? "—"}</strong><span>Range</span></div><div><strong>{result.statistics?.averageVelocity ?? "—"}</strong><span>Avg. velocity</span></div><div><strong>{result.statistics?.averageNoteLengthBeats ?? "—"}</strong><span>Avg. beats</span></div></div>
             <details><summary>Effective sections &amp; package</summary><p>Format {result.version} · MIDI channel {result.effectiveConfiguration.channel + 1}</p>
               {result.effectiveConfiguration.sections.map((s, i) => <p key={i}><strong>{s.name}</strong> · {s.style} · {s.bars} bars · {dimensions.map((d) => `${d} ${s.behavior[d]}`).join(" · ")}</p>)}

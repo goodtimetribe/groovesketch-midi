@@ -160,13 +160,17 @@ describe("piano roll", () => {
     expect(container.textContent).toContain("Visible notes (2)");
   });
 
-  it("renders a separate note-view card with sections before track controls", () => {
+  it("renders the piano roll before arrangement and track controls", () => {
     const roll = container.querySelector('section[aria-label="Note View"]')!;
     expect(roll.classList.contains("card")).toBe(true);
+    const canvas = roll.querySelector(".roll-canvas")!;
     const sections = roll.querySelector('[aria-label="Arrangement sections"]')!;
     const focus = [...roll.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Focus"))!;
+    const tracks = roll.querySelector(".roll-visibility")!;
+    expect(canvas.compareDocumentPosition(sections) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(sections.compareDocumentPosition(focus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(roll.querySelector("canvas")).not.toBeNull();
+    expect(canvas.compareDocumentPosition(tracks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(canvas.querySelector("canvas")).not.toBeNull();
   });
 
   it("collapses arrangement controls while keeping tracks and the piano roll visible", async () => {
