@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>BasslineGenerator.Tests</AssemblyName>
+    <RootNamespace>BasslineGenerator.Tests</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -20,9 +22,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/BasslineGenerator.Core/BasslineGenerator.Core.csproj" />
-    <ProjectReference Include="../../src/BasslineGenerator.Cli/BasslineGenerator.Cli.csproj" />
-    <ProjectReference Include="../../src/BasslineGenerator.Api/BasslineGenerator.Api.csproj" />
+    <ProjectReference Include="../../src/GrooveSketch.Core/GrooveSketch.Core.csproj" />
+    <ProjectReference Include="../../src/GrooveSketch.Cli/GrooveSketch.Cli.csproj" />
+    <ProjectReference Include="../../src/GrooveSketch.Api/GrooveSketch.Api.csproj" />
   </ItemGroup>
 
 </Project>

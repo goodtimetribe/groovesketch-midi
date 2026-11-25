@@ -718,7 +718,7 @@ public class ApiTests
         using var document = JsonDocument.Parse(await client.GetStringAsync("/swagger/v1/swagger.json"));
         var root = document.RootElement;
         var info = root.GetProperty("info");
-        Assert.Equal("Bassline Generator API", info.GetProperty("title").GetString());
+        Assert.Equal("GrooveSketch MIDI API", info.GetProperty("title").GetString());
         Assert.Equal("1.0.0", info.GetProperty("version").GetString());
         Assert.Contains("Privacy-focused", info.GetProperty("description").GetString());
         Assert.Equal("GPL-3.0", info.GetProperty("license").GetProperty("name").GetString());

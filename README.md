@@ -1,22 +1,27 @@
-# BasslineGenerator
+# GrooveSketch MIDI
 
-[![CI](https://github.com/goodtimetribe/tos-midi-bassline-generator/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/goodtimetribe/tos-midi-bassline-generator/actions/workflows/ci.yml)
+[![CI](https://github.com/goodtimetribe/groovesketch-midi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/goodtimetribe/groovesketch-midi/actions/workflows/ci.yml)
 
-A .NET 10 library, console application, and HTTP API for generating motif-based electronic
-basslines as standard MIDI type 1 files. Import the resulting MIDI into a DAW or
-a compatible MIDI workflow and assign it to a bass instrument.
+A multi-track MIDI sketching environment for creating, shaping, and playing
+musical ideas. Work with logical roles, routing profiles, playback and transport,
+patterns, and variations, then export MIDI for a DAW or compatible hardware.
+Its .NET 10 Core library, CLI, and stateless API retain the existing
+bass-generation and MIDI behavior.
 
-`src/BasslineGenerator.Core` contains the reusable generation and MIDI logic;
-`src/BasslineGenerator.Cli` handles console interaction, and
-`src/BasslineGenerator.Api` serves stateless HTTP requests; both reference Core.
-`tests/BasslineGenerator.Tests` tests Core, CLI, and API behavior.
+`src/GrooveSketch.Core` contains reusable generation and MIDI logic;
+`src/GrooveSketch.Cli` handles console interaction, and
+`src/GrooveSketch.Api` serves stateless HTTP requests; both reference Core.
+`src/GrooveSketch.Web` provides the sketching workspace, and
+`tests/GrooveSketch.Tests` tests Core, CLI, and API behavior.
+The project paths and solution labels use GrooveSketch; existing .NET assembly
+namespaces and bass-specific generation types remain unchanged for compatibility.
 
 ## Architecture
 
 ```text
-CLI user -> BasslineGenerator.Cli -> BasslineGenerator.Core -> MIDI file on disk
-HTTP client -> BasslineGenerator.Api -> BasslineGenerator.Core -> MIDI in memory
-                                                            -> HTTP response
+Musician -> GrooveSketch.Web -> GrooveSketch.Api -> GrooveSketch.Core -> MIDI response
+             | playback, roles, routing, patterns, variations
+CLI user -> GrooveSketch.Cli -> GrooveSketch.Core -> MIDI file on disk
 ```
 
 Core has no dependency on either front end. The CLI writes files only after
@@ -33,10 +38,10 @@ Install the .NET 10 SDK, then from the repository root:
 ```sh
 dotnet build
 dotnet test
-dotnet run --project src/BasslineGenerator.Cli
+dotnet run --project src/GrooveSketch.Cli
 ```
 
-Alternatively, run `dotnet run` from the `src/BasslineGenerator.Cli` directory. Choose
+Alternatively, run `dotnet run` from the `src/GrooveSketch.Cli` directory. Choose
 single section or full arrangement, style (for a single section), key, scale,
 BPM, bars and progression. Confirm with `Y` to write a uniquely named
 `bassline-<id>.mid` file in the current working directory. Existing files are
@@ -50,7 +55,7 @@ names. Any omitted option is requested interactively; style is only used for a
 single section. For example, to generate without prompts:
 
 ```sh
-dotnet run --project src/BasslineGenerator.Cli -- --mode single --style acid --key A --scale minor --bpm 140 --bars 16 --progression "Synthwave" --yes
+dotnet run --project src/GrooveSketch.Cli -- --mode single --style acid --key A --scale minor --bpm 140 --bars 16 --progression "Synthwave" --yes
 ```
 
 Mode, style, and scale also accept the numbers shown in their prompts.
@@ -65,11 +70,11 @@ written as `--option=value`. Invalid options or values produce an error.
 
 ### Web application
 
-The React frontend lives in `src/BasslineGenerator.Web`. Start the API as shown
+The React frontend lives in `src/GrooveSketch.Web`. Start the API as shown
 below, then in a second terminal run:
 
 ```sh
-cd src/BasslineGenerator.Web
+cd src/GrooveSketch.Web
 npm ci
 npm run dev
 ```
@@ -226,7 +231,7 @@ Packages are saved only when explicitly downloaded by the user.
 Run the API from the repository root:
 
 ```sh
-dotnet run --project src/BasslineGenerator.Api
+dotnet run --project src/GrooveSketch.Api
 ```
 
 The development launch profile listens at `http://localhost:5080`; open
@@ -450,7 +455,7 @@ implemented routes.
 
 ### Configuration and deployment
 
-`src/BasslineGenerator.Api/appsettings.json` configures allowed CORS origins and
+`src/GrooveSketch.Api/appsettings.json` configures allowed CORS origins and
 the default limit of 100 requests per 60 seconds per client IP. No origins are
 allowed by default outside Development. `appsettings.Development.json` permits
 `http://localhost:3000` and `http://localhost:5173` for local development.
@@ -622,7 +627,7 @@ their harmony. The progression cycles continuously throughout the song.
 
 ## Programmatic use
 
-Reference `BasslineGenerator.Core` and construct the generator directly:
+Reference the GrooveSketch Core project and construct the existing generator directly:
 
 ```csharp
 using BasslineGenerator.Export;

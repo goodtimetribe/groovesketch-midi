@@ -102,16 +102,16 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Bassline Generator API",
+        Title = "GrooveSketch MIDI API",
         Version = typeof(Program).Assembly.GetName().Version!.ToString(3),
-        Description = "Privacy-focused MIDI bassline generation service.\n\n" +
+        Description = "Privacy-focused MIDI sketch generation service.\n\n" +
             "Features: in-memory MIDI generation, no user accounts, no file persistence, Swagger documentation, and a REST API.\n\n" +
             "## Generate Sample Bassline\n\n" +
             "Use **Generation → POST /api/generate** and select **Try it out**. Choose a preset example, " +
             "adjust the musical settings, and execute the request. For JSON responses, use **Download MIDI** " +
             "to reproduce and download the same bassline. " +
             "The example selector includes Dreamy, Pop, Acid, and Rave.",
-        Contact = new OpenApiContact { Name = "GitHub repository", Url = new Uri("https://github.com/goodtimetribe/tos-midi-bassline-generator") },
+        Contact = new OpenApiContact { Name = "GitHub repository", Url = new Uri("https://github.com/goodtimetribe/groovesketch-midi") },
         License = new OpenApiLicense { Name = "GPL-3.0", Url = new Uri("https://www.gnu.org/licenses/gpl-3.0.html") }
     });
     options.TagActionsBy(api => [api.ActionDescriptor.RouteValues["action"] == "Health" ? "System" : "Generation"]);
@@ -149,7 +149,7 @@ app.UseSwaggerUI(options =>
         ?? throw new InvalidOperationException("Swagger form script is missing.");
     using var reader = new StreamReader(script);
     options.HeadContent = $"<script>{reader.ReadToEnd()}</script>";
-    options.DocumentTitle = "Bassline Generator API";
+    options.DocumentTitle = "GrooveSketch MIDI API";
     options.DisplayRequestDuration();
 });
 app.UseRouting();
